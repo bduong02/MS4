@@ -65,7 +65,15 @@ int main(int argc, char* argv[]) {
 
 
 string execute(hsql::SQLParserResult* result) {
-	
-    //handle logic etc...
-    return "";
+    string statement = "";
+    switch(result->type())
+    {
+	case StmtSelect:
+            statement = dynamic_cast<MakeStatement>(result)->toString();
+            break;
+	default:
+	     statement = "Statement: " + result->toString() + " is invalid.";
+	     break;
+    }
+    return statement;   
 }
