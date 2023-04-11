@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+#db files
+*.001
+*.002

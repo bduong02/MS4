@@ -11,20 +11,21 @@
 #include "SQLParser.h"
 #include "SQLParserResult.h"
 using namespace std;
+using namespace hsql;
 
 //Preconditions: the SqlParseResult parse tree MUST be processed 
 //               beforehand by the SQLParser::parseSQLString function
 //Process: for now, just returns the resulting statement result as a string
 //Postconditions: none
-string execute(hsql::SQLParserResult* result);
+string execute(SQLParserResult* &result, string statementInput);
 
 int main(int argc, char* argv[]) {
+    /*
     //handle cmd arguments (will ignore extra args)
     if(argc <= 1) {
         return 1;
     }
     string envDirPath = argv[1];
-
     //initialize DB environment in passed directory path
     DbEnv environment(0U);
     try {
@@ -33,47 +34,55 @@ int main(int argc, char* argv[]) {
 	    environment.open(envDirPath.c_str(), DB_CREATE, 0);
     } catch(DbException &E) {
         cout << "Error creating DB environment" << endl;
-        return 1;
+        exit(EXIT_FAILURE);
     }
-	
 
     //read sql statements, parse & handle accordingly
     const string EXIT_RESPONSE = "quit";
     string statementInput = "";
     while(statementInput != EXIT_RESPONSE) {
-        
         cout << "SQL> ";
         cin >> statementInput;
-        hsql::SQLParserResult* result = nullptr;
+        SQLParserResult* result = nullptr;
+        //handle input with appropriate action or quit
         if(statementInput != EXIT_RESPONSE) {
-	    result = parseSQLString(statementInput);
-	    if(isValid(result))
-	    {
-		cout << execute(result);
-	    }
-	    //include logic here to handle
-	}
-	} else {
-	    exit(EXIT_FAILURE);
-	}
-	delete result;
-            
-        }
+	        result = SQLParser::parseSQLString(statementInput);
+		    cout << execute(result, statementInput) << endl;
+            delete result;
+	    } else {
+	        exit(EXIT_FAILURE);
+	    } 
     } 
+    */
     return 0;
 }
-
-
-string execute(hsql::SQLParserResult* result) {
-    string statement = "";
-    switch(result->type())
-    {
-	case StmtSelect:
-            statement = dynamic_cast<MakeStatement>(result)->toString();
+string execute(SQLParserResult* &result, string statementInput) {
+    string resultStr = "";
+    //handle invalid statement
+    if(!result->isValid()) {
+        return "Invalid SQL: " + statementInput;
+    } 
+    SQLStatement* inputStatement = result->getMutableStatement(0);
+    switch(inputStatement->type()) {
+        case kStmtSelect:
             break;
-	default:
-	     statement = "Statement: " + result->toString() + " is invalid.";
-	     break;
+        case kStmtCreate:
+            break;
+        default:
+            resultStr = "Invalid SQL: " + statementInput;
+            break;
     }
-    return statement;   
+    return resultStr;   
+}
+//Preconditions: the statement must be of specified type 
+//               and be verified asa  valid result
+//Process: formats a select statement into a printable string
+string formatSelect(SelectStatement* result) {
+    return "";
+}
+//Preconditions: the statement must be of specified type 
+//               and be verified asa  valid result
+//Process: formats a create statement into a printable string
+string formatCreate(CreateStatement* result) {
+    return "";
 }
