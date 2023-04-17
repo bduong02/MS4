@@ -189,4 +189,70 @@ void SlottedPage::slide(u_int16_t start, u_int16_t end) {
   delete idList;  
 }
 
+HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttributes column_attributes)
+{
+    
+}
+                     
+void HeapTable::create()
+{
+    DbRelation::create();
+}
+
+void HeapTable::create_if_not_exists();
+
+void HeapTable::drop();
+
+void HeapTable::open();
+
+void HeapTable::close();
+
+Handles *select();
+                     
+Handles* HeapTable::select(const ValueDict* where) {
+    Handles* handles = new Handles();
+    BlockIDs* block_ids = file.block_ids();
+    for (auto const& block_id: *block_ids) {
+        SlottedPage* block = file.get(block_id);
+        RecordIDs* record_ids = block->ids();
+        for (auto const& record_id: *record_ids)
+            handles->push_back(Handle(block_id, record_id));
+        delete record_ids;
+        delete block;
+    }
+    delete block_ids;
+    return handles;
+}
+
+// return the bits to go into the file
+// caller responsible for freeing the returned Dbt and its enclosed ret->get_data().
+Dbt* HeapTable::marshal(const ValueDict* row) {
+    char *bytes = new char[DbBlock::BLOCK_SZ]; // more than we need (we insist that one row fits into DbBlock::BLOCK_SZ)
+    uint offset = 0;
+    uint col_num = 0;
+    for (auto const& column_name: this->column_names) {
+        ColumnAttribute ca = this->column_attributes[col_num++];
+        ValueDict::const_iterator column = row->find(column_name);
+        Value value = column->second;
+        if (ca.get_data_type() == ColumnAttribute::DataType::INT) {
+            *(int32_t*) (bytes + offset) = value.n;
+            offset += sizeof(int32_t);
+        } else if (ca.get_data_type() == ColumnAttribute::DataType::TEXT) {
+            uint size = value.s.length();
+            *(u16*) (bytes + offset) = size;
+            offset += sizeof(u16);
+            memcpy(bytes+offset, value.s.c_str(), size); // assume ascii for now
+            offset += size;
+        } else {
+            throw DbRelationError("Only know how to marshal INT and TEXT");
+        }
+    }
+    char *right_size_bytes = new char[offset];
+    memcpy(right_size_bytes, bytes, offset);
+    delete[] bytes;
+    Dbt *data = new Dbt(right_size_bytes, offset);
+    return data;
+}
+                       
+
 //-------------------------------------------------------
