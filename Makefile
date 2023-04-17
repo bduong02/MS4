@@ -3,7 +3,7 @@
 # CPSC4300, Spring 2023
 # Team: Butterfly
 
-EXECUTABLE_FILE = EXEC 
+EXECUTABLE_FILE = sql5300
 
 Shell: Shell.o heap_storage.o
 	g++ -L/usr/local/db6/lib -o $(EXECUTABLE_FILE) Shell.o heap_storage.o -ldb_cxx -lsqlparser

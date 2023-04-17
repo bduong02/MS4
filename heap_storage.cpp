@@ -5,6 +5,8 @@
 #include "heap_storage.h"
 #include "db_cxx.h"
 #include "storage_engine.h" 
+#include <stdlib.h>
+#include <algorithm>
 #include <cstring>
 #include <cmath>
 #include <string>
@@ -72,11 +74,11 @@ void SlottedPage::put(RecordID record_id, const Dbt &data) {
     
     //slide recordds left and copy new data
     this->slide(location, newLocation);
-    memcpy(this->address(newLocation), data.get_data(), size + netSize);
+    memcpy(this->address(newLocation), data.get_data(), newSize);
   } else {
     //overwrite record and slide record data right
-    memcpy(this->address(newLocation), data.get_data(), newSize);
-    this->slide(location, newLocation);
+    memcpy(this->address(location), data.get_data(), newSize);
+    this->slide(location + newSize, location + size);
   }
 
   //update header
@@ -99,7 +101,7 @@ RecordIDs* SlottedPage::ids(void) {
   RecordIDs* idList = new RecordIDs;
 
   //add all ids to list and return
-  for(u_int16_t id = 1; id <= this->num_records; id++) {
+  for(u_int16_t id = 1; id < this->num_records + 1; id++) {
     u_int16_t size = 0, loc = 0;
     this->get_header(size, loc, id);
 
@@ -107,7 +109,6 @@ RecordIDs* SlottedPage::ids(void) {
       idList->push_back(id);
   }
     
-
   return idList;
 }
 
@@ -149,26 +150,14 @@ bool SlottedPage::has_room(u_int16_t size) {
 }
 
 void SlottedPage::slide(u_int16_t start, u_int16_t end) {
-  //don't need to shift if no net difference
-  
-
-  //shift data left
   int shift = start - end;
   u_int16_t size = 0, location = 0;
-  if(start == end) return;
-  else if(start > end) {
-    memcpy(this->address((this->end_free+1)-shift), 
-           this->address((this->end_free+1)), 
-           start - (this->end_free + 1));
-  } else {
-    char* destination  = (char*) (this->address(start));
-    const char *source = (char*)((char*)(this->block.get_data()) + (start - shift));
 
-    while (shift >= 0) {
-      *destination-- = *source--;
-      shift--;
-    }
-  }
+  if(shift == 0) return;
+  
+  memmove(this->address((this->end_free+1) + shift), 
+         this->address((this->end_free+1)), 
+         start - (this->end_free + 1));
 
   RecordIDs* idList = this->ids();
 
@@ -190,3 +179,99 @@ void SlottedPage::slide(u_int16_t start, u_int16_t end) {
 }
 
 //-------------------------------------------------------
+
+
+//HeapFile-----------------------------------------------
+void HeapFile::create() {
+  //open db with CREATE and EXCL flags to force intialization
+  db_open(DB_CREATE | DB_EXCL);
+
+  //create a page to make it all exist
+  SlottedPage* dummyPage = get_new();
+  delete dummyPage;
+}
+
+void HeapFile::drop(void) {
+  this->close();
+  this->db.remove(this->dbfilename.c_str(), nullptr, 0);
+}
+
+void HeapFile::open(void) {
+  this->db_open();
+}
+
+void HeapFile::close(void) {
+  this->db.close(0);
+  this->closed = true;
+}
+
+SlottedPage* HeapFile::get_new(void) {
+  //create an empty char of block size as a data
+  char dummyData[DbBlock::BLOCK_SZ];
+  memset(dummyData, 0, sizeof(dummyData));
+  Dbt blockToSlot(&dummyData, sizeof(dummyData));
+
+  //get block id and create a key
+  this->last++;
+  BlockID blockID = ((this->last) + 0);
+  Dbt key(&blockID, sizeof(blockID));
+
+
+  //create page, create key-pair association in db and then return
+  this->db.put(nullptr, &key, &blockToSlot, 0);
+  return new SlottedPage(blockToSlot, blockID, true);
+}
+
+SlottedPage* HeapFile::get(BlockID blockID) {
+  Dbt key(&blockID, sizeof(blockID)), data;
+
+  //get data from db using defined key
+  this->db.get(nullptr, &key, &data, 0);
+  return new SlottedPage(data, blockID, false);
+}
+
+void HeapFile::put(DbBlock* block) {
+  BlockID blockId = block->get_block_id();
+  Dbt key(&blockId, sizeof(blockId));
+  this->db.put(nullptr, &key, (Dbt*)(block->get_data()), 0);
+}
+
+
+BlockIDs* HeapFile::block_ids() {
+  BlockIDs* idList = new BlockIDs();
+
+  for(BlockID blockId = 1; blockId < this->last + 1; blockId++)
+    idList->push_back(blockId);
+
+  return idList;
+}
+
+
+void HeapFile::db_open(uint flags) {
+  //handle closed state
+  if(!this->closed) return;
+
+  //set block size and open db
+  this->db.set_re_len(DbBlock::BLOCK_SZ);
+  this->db.open(NULL, this->dbfilename.c_str(), NULL, DB_RECNO, flags, 0644);
+
+  //intialize db statisitcs
+  if(flags == 0) {
+    DB_BTREE_STAT stat;
+    this->db.stat(nullptr, &stat, DB_FAST_STAT);
+    this->last = stat.bt_ndata;
+  } else this-> last = 0;
+
+  //set closed to false to indicate db is open
+  this->closed = false;
+}
+
+
+
+//-------------------------------------------------------
+
+//HeapTable--------------------------------
+
+
+
+//-----------------------------------------
