@@ -189,25 +189,54 @@ void SlottedPage::slide(u_int16_t start, u_int16_t end) {
   delete idList;  
 }
 
-HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttributes column_attributes)
+// HeapTable class
+
+HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttributes column_attributes) : 
+DbRelation(table_name, column_names, column_attributes)
 {
-    
+    file = HeapFile(table_name);
 }
                      
 void HeapTable::create()
 {
-    DbRelation::create();
+    file.create();
 }
 
-void HeapTable::create_if_not_exists();
+void HeapTable::create_if_not_exists()
+{
+    try {
+       open();
+    }
+    catch(DBException& d)
+    {
+       create();
+    }
+}
+  
 
-void HeapTable::drop();
+void HeapTable::drop()
+{
+    file.drop();
+}
 
-void HeapTable::open();
+void HeapTable::open()
+{
+    file.open();
+}
 
-void HeapTable::close();
+void HeapTable::close()
+{
+    file.close();
+}
 
-Handles *select();
+Handle HeapTable::insert(const ValueDict *row)
+{
+    open();
+    ValueDict* fullRow = validate(row);
+    Handle h = append(fullRow);
+    delete fullRow;
+    return h;
+}
                      
 Handles* HeapTable::select(const ValueDict* where) {
     Handles* handles = new Handles();
