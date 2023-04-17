@@ -20,13 +20,14 @@ using namespace hsql;
 string execute(SQLParserResult* &result, string statementInput);
 
 int main(int argc, char* argv[]) {
-    /*
-    //handle cmd arguments (will ignore extra args)
     if(argc <= 1) {
+        cout << "Invalid argument count" << endl;
         return 1;
     }
+
     string envDirPath = argv[1];
-    //initialize DB environment in passed directory path
+    
+    //init db environment
     DbEnv environment(0U);
     try {
         environment.set_message_stream(&cout);
@@ -37,12 +38,13 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    //read sql statements, parse & handle accordingly
+    //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";
     string statementInput = "";
     while(statementInput != EXIT_RESPONSE) {
         cout << "SQL> ";
-        cin >> statementInput;
+        getline(cin, statementInput);
+
         SQLParserResult* result = nullptr;
         //handle input with appropriate action or quit
         if(statementInput != EXIT_RESPONSE) {
@@ -53,7 +55,7 @@ int main(int argc, char* argv[]) {
 	        exit(EXIT_FAILURE);
 	    } 
     } 
-    */
+
     return 0;
 }
 string execute(SQLParserResult* &result, string statementInput) {
@@ -62,9 +64,12 @@ string execute(SQLParserResult* &result, string statementInput) {
     if(!result->isValid()) {
         return "Invalid SQL: " + statementInput;
     } 
+
+    //handle sql statements accordingly
     SQLStatement* inputStatement = result->getMutableStatement(0);
     switch(inputStatement->type()) {
         case kStmtSelect:
+            resultStr = "";
             break;
         case kStmtCreate:
             break;
@@ -74,15 +79,4 @@ string execute(SQLParserResult* &result, string statementInput) {
     }
     return resultStr;   
 }
-//Preconditions: the statement must be of specified type 
-//               and be verified asa  valid result
-//Process: formats a select statement into a printable string
-string formatSelect(SelectStatement* result) {
-    return "";
-}
-//Preconditions: the statement must be of specified type 
-//               and be verified asa  valid result
-//Process: formats a create statement into a printable string
-string formatCreate(CreateStatement* result) {
-    return "";
-}
+

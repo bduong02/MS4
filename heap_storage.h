@@ -11,6 +11,8 @@
 
 #include "db_cxx.h"
 #include "storage_engine.h"
+#include <string> 
+using namespace std;
 
 /**
  * @class SlottedPage - heap file implementation of DbBlock.
@@ -28,6 +30,9 @@
  */
 class SlottedPage : public DbBlock {
 public:
+
+    //Preconditons: block MUST be an intialized object, block_id is a valid block id
+    //              and is_new MUST be correct (this is a contractual requirement)
     SlottedPage(Dbt &block, BlockID block_id, bool is_new = false);
 
     // Big 5 - we only need the destructor, copy-ctor, move-ctor, and op= are unnecessary
@@ -44,7 +49,8 @@ public:
 
     virtual RecordID add(const Dbt *data);
 
-    virtual Dbt *get(RecordID record_id);
+
+    virtual Dbt* get(RecordID record_id);
 
     virtual void put(RecordID record_id, const Dbt &data);
 
