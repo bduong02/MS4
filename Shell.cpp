@@ -2,13 +2,14 @@
 //Authors: Ishan Parikh, Bryan Duong
 //Date 4-1-23
 //CPSC 5300
-//Purpose: Milestone 1 Impelemnetation
+//Purpose: Milestone 1 Impelementation
 #include <iostream>
 #include <cstdlib> 
 #include <string>
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "SQLParserResult.h"
+#include "ms2Tests.cpp"
 using namespace std;
 using namespace hsql;
 
@@ -39,6 +40,19 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
     _DB_ENV = &environment;
+
+    //MILESTONE 2 TESTS
+    if(MS2Tests::slottedPageTests() == false) {
+        cout << "Slotted Page Tests failed!" << endl;
+    } else {
+        cout << "Slotted Page Tests passed!" << endl;
+    }
+
+    if(MS2Tests::slottedPageTests() == false) {
+        cout << "Slotted Page Tests failed! Moving on to shell...." << endl << endl;
+    } else {
+        cout << "Slotted Page Tests passed! Moving on to shell...." << endl << endl;
+    }
 
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";
