@@ -42,7 +42,7 @@ namespace MS2Tests {
      
     // fetching the record back
     Dbt *getDbt = page.get(id);
-    getDbt = slot.get(id);
+    getDbt = page.get(id);
     std::string expected = std::string(rec2, sizeof(rec2));
     std::string result((char *) get_dbt->get_data(), get_dbt->get_size());
     delete getDbt;
