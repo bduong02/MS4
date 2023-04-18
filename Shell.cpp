@@ -9,6 +9,7 @@
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "SQLParserResult.h"
+#include "heap_storage.h"
 #include "ms2Tests.cpp"
 using namespace std;
 using namespace hsql;
@@ -83,18 +84,17 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-
 void execute(SQLParserResult* &result) {
     //handle sql statements accordingly
     for(uint i = 0; i < result->size(); ++i) {
         switch(result->getStatement(i)->type()) {
-            case kstatementSelect:
+            case kStmtSelect:
                 cout << handleSelect((const SelectStatement *) result->getStatement(i)) << endl;
                 break;
-            case kstatementCreate:
+            case kStmtCreate:
                 cout << handleCreate((const CreateStatement *) result->getStatement(i)) << endl;
                 break;
-            default:
+            default: 
                 cout << "Invalid SQL/Not supported: " <<  endl;
                 break;
         }
@@ -152,7 +152,7 @@ string handleSelect(const SelectStatement* statement) {
             case kExprLiteralInt:
                 output += to_string(expr->ival);
                 break;
-                
+
             case kExprColumnRef:
                 if (expr->table != nullptr)
                     output += string(expr->table) + ".";
@@ -220,7 +220,6 @@ string handleCreate(const CreateStatement* statement) {
     output += ")";
     return output;
 }
-
 
 //note this is not super extensive
 string expressToString(const Expr* expression) {

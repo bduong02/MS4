@@ -200,7 +200,10 @@ void HeapFile::create() {
 
 void HeapFile::drop(void) {
   this->close();
-  this->db.remove(this->dbfilename.c_str(), nullptr, 0);
+
+  //reinit db
+  Db reinit(_DB_ENV, 0);
+  reinit.remove(this->dbfilename.c_str(), nullptr, 0);
 }
 
 void HeapFile::open(void) {
