@@ -101,7 +101,7 @@ namespace MS2Tests {
   }
 
   bool heapFileAndTableTests() {
-    cout << "DOOT" << endl;
+ 
     ColumnNames names;
     names.push_back("aaa");
     names.push_back("bbb");
