@@ -40,12 +40,12 @@ namespace MS2Tests {
         return false;
     }
      
-    // fetch record back
-    Dbt *dbt = page.get(id);
-    string expected = string(rec2, sizeof(rec2));
-    string actual = "";
-    string result((char *) dbt->get_data(), dbt->get_size());
-    delete dbt;
+    // fetching the record back
+    Dbt *getDbt = page.get(id);
+    getDbt = slot.get(id);
+    std::string expected = std::string(rec2, sizeof(rec2));
+    std::string result((char *) get_dbt->get_data(), get_dbt->get_size());
+    delete getDbt;
     if(expected != result) {
         return true;
     }
