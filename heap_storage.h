@@ -1,3 +1,8 @@
+//Filename: heap_storage.cpp
+//Users: Ishan Parikh, Bryan D.
+//Purpose: definition of SlottedPage, HeapFile, and HeapTable class
+
+
 /**
  * @file heap_storage.h - Implementation of storage_engine with a heap file structure.
  * SlottedPage: DbBlock
@@ -89,7 +94,7 @@ class HeapFile : public DbFile {
 public:
     HeapFile(std::string name) : DbFile(name), dbfilename(name + ".db"), last(0), closed(true), db(_DB_ENV, 0) {}
 
-    virtual ~HeapFile() {}
+    virtual ~HeapFile() {} //nothing to delete for now, ignore
 
     HeapFile(const HeapFile &other) = delete;
 
@@ -156,17 +161,18 @@ public:
 
     virtual Handle insert(const ValueDict *row);
 
-    virtual void update(const Handle handle, const ValueDict *new_values);
+    //Note: ignore these for now, they will be updated in future milestones
+    virtual void update(const Handle handle, const ValueDict *new_values) {};
 
-    virtual void del(const Handle handle);
+    virtual void del(const Handle handle) {};
 
-    virtual Handles *select();
+    virtual Handles *select() {return nullptr;};
 
-    virtual Handles *select(const ValueDict *where);
+    virtual Handles *select(const ValueDict *where) {return nullptr;};
 
-    virtual ValueDict *project(Handle handle);
+    virtual ValueDict *project(Handle handle) {return nullptr;};
 
-    virtual ValueDict *project(Handle handle, const ColumnNames *column_names);
+    virtual ValueDict *project(Handle handle, const ColumnNames *column_names) {return nullptr;};
 
 protected:
     HeapFile file;
@@ -177,7 +183,7 @@ protected:
 
     virtual Dbt *marshal(const ValueDict *row);
 
-    virtual ValueDict *unmarshal(Dbt *data);
+    virtual ValueDict *unmarshal(Dbt *data) {return nullptr;};
 };
 
 bool test_heap_storage();

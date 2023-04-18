@@ -2,8 +2,7 @@
 //Authors: Ishan Parikh, Bryan Duong
 //Date 4-1-23
 //CPSC 5300
-//Purpose: SQL statement parser impelementation in C++
-//--not extensive, test-driven only to sample input at the moment
+//Purpose: Milestone 1 Impelemnetation
 #include <iostream>
 #include <cstdlib> 
 #include <string>
@@ -12,6 +11,8 @@
 #include "SQLParserResult.h"
 using namespace std;
 using namespace hsql;
+
+DbEnv *_DB_ENV;
 
 //Preconditions: the SqlParseResult parse tree MUST be processed 
 //               beforehand by the SQLParser::parseSQLString function
@@ -27,7 +28,7 @@ int main(int argc, char* argv[]) {
 
     string envDirPath = argv[1];
     
-    //init db environment
+    //init db environment locally and globally
     DbEnv environment(0U);
     try {
         environment.set_message_stream(&cout);
@@ -37,6 +38,7 @@ int main(int argc, char* argv[]) {
         cout << "Error creating DB environment" << endl;
         exit(EXIT_FAILURE);
     }
+    _DB_ENV = &environment;
 
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";
