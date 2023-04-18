@@ -181,7 +181,7 @@ string handleSelect(const SelectStatement* statement) {
 string handleCreate(const CreateStatement* statement) {
     string output = "CREATE TABLE ";
     if (statement->type != CreateStatement::kTable)
-        return output + "...";
+        return output + "(placeholder)";
     
     if (statement->ifNotExists)
         output += "IF NOT EXISTS ";
