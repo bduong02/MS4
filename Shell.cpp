@@ -20,8 +20,8 @@ DbEnv *_DB_ENV;
 //Process:       just matches the result to a string and prints it
 //Postconditions: none
 void execute(SQLParserResult* &result);
-string handleSelect(const SelectStatement *stmt);
-string handleCreate(const CreateStatement *stmt);
+string handleSelect(const SelectStatement* statement);
+string handleCreate(const CreateStatement* statement);
 string expressToString(const Expr* expression);
 
 int main(int argc, char* argv[]) {
@@ -88,10 +88,10 @@ void execute(SQLParserResult* &result) {
     //handle sql statements accordingly
     for(uint i = 0; i < result->size(); ++i) {
         switch(result->getStatement(i)->type()) {
-            case kStmtSelect:
+            case kstatementSelect:
                 cout << handleSelect((const SelectStatement *) result->getStatement(i)) << endl;
                 break;
-            case kStmtCreate:
+            case kstatementCreate:
                 cout << handleCreate((const CreateStatement *) result->getStatement(i)) << endl;
                 break;
             default:
@@ -102,12 +102,12 @@ void execute(SQLParserResult* &result) {
 }
 
 //note this is not super extensive
-string handleSelect(const SelectStatement *stmt) {
+string handleSelect(const SelectStatement* statement) {
     string output = "SELECT ";
     bool hasComma = false;
 
     //handle each expression
-    for (Expr *expr : *stmt->selectList) {
+    for (Expr *expr : *statement->selectList) {
         if (hasComma)
             output += ", ";
 
@@ -172,30 +172,31 @@ string handleSelect(const SelectStatement *stmt) {
     }
     output += " FROM ";
 
-    if (stmt->whereClause != nullptr)
-        output += " WHERE " + expressToString(stmt->whereClause);
+    if (statement->whereClause != nullptr)
+        output += " WHERE " + expressToString(statement->whereClause);
 
     return output;
 }
 
-string handleCreate(const CreateStatement* stmt) {
+string handleCreate(const CreateStatement* statement) {
     string output = "CREATE TABLE ";
-    if (stmt->type != CreateStatement::kTable)
+    if (statement->type != CreateStatement::kTable)
         return output + "...";
-    if (stmt->ifNotExists)
+    
+    if (statement->ifNotExists)
         output += "IF NOT EXISTS ";
     
     //handle table name 
-    output += string(stmt->tableName) + " (";
+    output += string(statement->tableName) + " (";
     bool hasComma = false;
 
     //handle column types for table
-    for (ColumnDefinition *col : *stmt->columns) {
+    for (ColumnDefinition *columnEntry : *statement->columns) {
         if (hasComma)
             output += ", ";
 
         //account for different types
-        switch (col->type) {
+        switch (columnEntry->type) {
             case ColumnDefinition::DOUBLE:
                 output += " DOUBLE";
                 break;
