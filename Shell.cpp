@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
                 execute(result);
                 delete result;
             }     
-	    }
+	}
     } 
 
     return 0;
@@ -115,7 +115,8 @@ string handleSelect(const SelectStatement* statement) {
         switch (expr->type) {
             case kExprOperator:
                 if(expr == nullptr)
-                    output += "null";
+                    output += "NULL";
+			
                 else {
                     //if unary not
                     if (expr->opType == Expr::NOT)
@@ -168,15 +169,9 @@ string handleSelect(const SelectStatement* statement) {
                 break;
         }
 
-        if (expr->alias != nullptr) output += string(" AS ") + string(expr->alias);
-
-
         hasComma = true;
     }
     output += " FROM ";
-
-    if (statement->whereClause != nullptr)
-        output += " WHERE " + expressToString(statement->whereClause);
 
     return output;
 }
@@ -200,17 +195,18 @@ string handleCreate(const CreateStatement* statement) {
 
         //account for different types
         switch (columnEntry->type) {
-            case ColumnDefinition::DOUBLE:
-                output += " DOUBLE";
-                break;
-            case ColumnDefinition::INT:
+	    case ColumnDefinition::INT:
                 output += " INT";
                 break;
             case ColumnDefinition::TEXT:
                 output += " TEXT";
                 break;
+            case ColumnDefinition::DOUBLE:
+                output += " DOUBLE";
+                break;
+           
             default:
-                output += " ...";
+                output += "(Undefined)";
                 break;
         }
         hasComma = true;
@@ -231,12 +227,13 @@ string expressToString(const Expr* expression) {
         case kExprStar:
             output += "*";
             break;
-        case kExprColumnRef:
-            if (expression->table != NULL)
-                output += string(expression->table) + ".";
         case kExprLiteralString:
             output += expression->name;
             break;
+        case kExprColumnRef:
+            if (expression->table != NULL)
+                output += string(expression->table) + ".";
+
 
         //convert the float and long values to a string
         case kExprLiteralFloat:
@@ -251,8 +248,6 @@ string expressToString(const Expr* expression) {
             output += "(UNDEFINED)";
             break;
     }
-
-    if (expression->alias != nullptr) output+= string(" AS ") + expression->alias;
 
     return output;
 }
