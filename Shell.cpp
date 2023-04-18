@@ -144,12 +144,15 @@ string handleSelect(const SelectStatement* statement) {
                         output += " " + expressToString(expr->expr2);
                 }
                 break;
+
+            //convert nums to string again.... yayyyyy
             case kExprLiteralFloat:
                 output += to_string(expr->fval);
                 break;
             case kExprLiteralInt:
                 output += to_string(expr->ival);
                 break;
+                
             case kExprColumnRef:
                 if (expr->table != nullptr)
                     output += string(expr->table) + ".";
