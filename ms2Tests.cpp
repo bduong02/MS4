@@ -42,9 +42,9 @@ namespace MS2Tests {
      
     // fetching the record back
     Dbt *getDbt = page.get(id);
-    getDbt = slot.get(id);
+    // getDbt = slot.get(id); 
     std::string expected = std::string(rec2, sizeof(rec2));
-    std::string result((char *) get_dbt->get_data(), get_dbt->get_size());
+    std::string result((char *) getDbt->get_data(), getDbt->get_size());
     delete getDbt;
     if(expected != result) {
         return true;
@@ -54,7 +54,7 @@ namespace MS2Tests {
     char r2[] = "slide function";
     rec1Dbt = Dbt(r2, sizeof(r2));
     page.put(1, rec1Dbt);
-    dbt = page.get(2);
+    Dbt* dbt = page.get(2);
     expected = string(rec2, sizeof(rec2));
     result = string((char*) dbt->get_data(), dbt->get_size());
     delete dbt;
@@ -63,7 +63,7 @@ namespace MS2Tests {
     }
     dbt = page.get(1);
     expected = string(r2, sizeof(r2));
-    actual = string((char *) dbt->get_data(), dbt->get_size());
+    result = string((char *) dbt->get_data(), dbt->get_size());
     delete dbt;
     if (expected != result) {
         return true;
