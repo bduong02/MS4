@@ -9,8 +9,12 @@
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "SQLParserResult.h"
+#include "SQLExec.h"
+#include "schema_tables.h"
 #include "heap_storage.h"
 #include "ms2Tests.cpp"
+#include "ms3Tests.cpp"
+
 using namespace std;
 using namespace hsql;
 
@@ -93,6 +97,9 @@ void execute(SQLParserResult* &result) {
                 break;
             case kStmtCreate:
                 cout << handleCreate((const CreateStatement *) result->getStatement(i)) << endl;
+                cout << "Calling SQLExec.execute" << endl;
+                SQLExec::execute(result->getStatement(i));
+
                 break;
             default: 
                 cout << "Invalid SQL/Not supported: " <<  endl;
