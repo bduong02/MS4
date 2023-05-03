@@ -60,6 +60,9 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
     // FIXME: initialize _tables table, if not yet present
     initialize_schema_tables();
 
+    if(tables == nullptr) // lines 63-64 were taken from Canvas
+        tables = new Tables();
+
     cout << "done initializing tables"<<endl;
 
     try {
@@ -161,18 +164,21 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     // add the table name to tables
     ValueDict* tableRow = new ValueDict();
 
-
-
     cout << "abcd" << endl;
-    tableRow->insert({"table_name", Value(statement->tableName)});
-    cout << "efgh" << endl;
-    // tables->insert(tableRow); // seg fault here
+    (*tableRow)["table_name"] = Value(statement->tableName);
+    // tableRow->insert({"table_name", Value(statement->tableName)});
+    cout << "printing table row:" << endl;
+
+    for(auto i : (*tableRow))
+            cout << i.first << ", " << (i.second).s << endl;
+
+    tables->insert((const ValueDict*)tableRow); // seg fault here
 
     // cout << "declared table row" << endl;
 
     // add the column names and types to Columns
-    ValueDict columnsRow = ValueDict(); // row to add to the Columns table
-    columnsRow["table_name"] = Value(statement->tableName);
+    ValueDict* columnsRow = new ValueDict(); // row to add to the Columns table
+    (*columnsRow)["table_name"] = Value(statement->tableName);
 
     cout << "declared columns row" << endl;
 
@@ -180,18 +186,26 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     for(int i=0; i < columnNames.size(); i++){
         cout << "in second loop"<<endl;
 
-        columnsRow.insert({"column_name", Value((columnNames[i]))});
-
+        (*columnsRow)["column_name"] = Value(columnNames[i]);
         cout << "inserted colname"<<endl;
-        columnsRow.insert({"datatype", Value((columnAttributes[i].get_data_type()))});
+
+        (*columnsRow)["column_name"] = Value(columnAttributes[i].get_data_type());
         cout << "inserted datatype"<<endl;
 
-        // Is this how I access the Columns table? Exception here
-        Columns().insert(&columnsRow);
+        // for (auto it1 = columnsRow.begin(); it1!=columnsRow.end(); ++it1)
+        //     cout << it1->first << "->" << it1->second << endl;
+       
+        for(auto i : (*columnsRow))
+            cout << i.first << ", " << (i.second).s << endl;
 
-        cout << "inserted"<<endl;
-        columnsRow.erase("column_name"); // get rid of the old column name to add a row with the next column name
-        columnsRow.erase("datatype"); // get rid of the old datatype to add a row with the next column name
+        Columns columns;
+
+        // Is this how I access the Columns table? Exception here
+        // columns.insert(columnsRow);
+
+        // cout << "inserted"<<endl;
+        // (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
+        // (*columnsRow).erase("datatype"); // get rid of the old datatype to add a row with the next column name
     }
 
     cout << "out of second loop"<<endl;

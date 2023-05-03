@@ -95,9 +95,14 @@ Handle Tables::insert(const ValueDict *row) {
     cout << "In tables::insert"<<endl;
     Handles *handles = select(row);
     cout <<"selected"<<endl;
-    bool unique = handles->empty();
-    delete handles;
-    cout <<"deleted handles"<<endl;
+
+    // David's line changes to check if handles is null
+    if(handles != nullptr){
+        bool unique = handles->empty();
+        cout << "going to delete handles"<<endl;
+        delete handles;
+        cout <<"deleted handles"<<endl;
+    }
     if (!unique)
         throw DbRelationError(row->at("table_name").s + " already exists");
     cout <<"exiting tables::insert"<<endl;
@@ -211,6 +216,7 @@ void Columns::create() {
 
 // Manually check that (table_name, column_name) is unique.
 Handle Columns::insert(const ValueDict *row) {
+    cout << "in Columns::insert" << endl;
     // Check that datatype is acceptable
     if (!is_acceptable_identifier(row->at("table_name").s))
         throw DbRelationError("unacceptable table name '" + row->at("table_name").s + "'");

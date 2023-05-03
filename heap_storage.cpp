@@ -285,6 +285,8 @@ DbRelation(table_name, column_names, column_attributes), file(table_name) {
   //quick intialize with super constructor and init file as such
   //to avoid using the assignment overload operator and causing issues
 }
+
+// TODO: implement HeapTable::select() and/or HeapTable::select() w/ where clause
                      
 void HeapTable::create() {
   this->file.create();
