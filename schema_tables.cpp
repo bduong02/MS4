@@ -5,16 +5,22 @@
  * @see "Seattle University, CPSC5300, Winter 2023"
  */
 #include "schema_tables.h"
-#include "Shell.cpp" // #include "ParseTreeToString.h"
-
+// #include "Shell.cpp" 
+#include "ParseTreeToString.h"
+#include "storage_engine.h"
 
 void initialize_schema_tables() {
+    cout <<"in init"<<endl;
     Tables tables;
     tables.create_if_not_exists();
+    cout <<"created"<<endl;
     tables.close();
+    cout<<"closed"<<endl;
     Columns columns;
     columns.create_if_not_exists();
+    cout <<"created"<<endl;
     columns.close();
+    cout<<"done init"<<endl;
 }
 
 // Not terribly useful since the parser weeds most of these out
@@ -86,11 +92,15 @@ void Tables::create() {
 // Manually check that table_name is unique.
 Handle Tables::insert(const ValueDict *row) {
     // Try SELECT * FROM _tables WHERE table_name = row["table_name"] and it should return nothing
+    cout << "In tables::insert"<<endl;
     Handles *handles = select(row);
+    cout <<"selected"<<endl;
     bool unique = handles->empty();
     delete handles;
+    cout <<"deleted handles"<<endl;
     if (!unique)
         throw DbRelationError(row->at("table_name").s + " already exists");
+    cout <<"exiting tables::insert"<<endl;
     return HeapTable::insert(row);
 }
 
@@ -116,7 +126,7 @@ void Tables::get_columns(Identifier table_name, ColumnNames &column_names, Colum
     where["table_name"] = table_name;
     Handles *handles = Tables::columns_table->select(&where);
 
-    ColumnAttribute column_attribute;
+    ColumnAttribute column_attribute = ColumnAttribute(ColumnAttribute::INT); // changed by David. Included the int data type since the constructor required a data type, but from my understanding, this data type declared here won't be used
     for (auto const &handle: *handles) {
         ValueDict *row = Tables::columns_table->project(
                 handle);  // get the row's values: {'column_name': <name>, 'data_type': <type>}
@@ -219,6 +229,8 @@ Handle Columns::insert(const ValueDict *row) {
     delete handles;
     if (!unique)
         throw DbRelationError("duplicate column " + row->at("table_name").s + "." + row->at("column_name").s);
+
+    cout << "Done with Columns::insert" << endl;
 
     return HeapTable::insert(row);
 }

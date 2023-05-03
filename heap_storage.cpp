@@ -315,7 +315,9 @@ void HeapTable::close() {
 Handle HeapTable::insert(const ValueDict *row) {
   //open relation define a row, insert it (deleting after) and return
   //h for future operations
+  cout<<"in HeapTable::insert"<<endl;
   this->open();
+  cout <<"opened"<<endl;
   ValueDict* fullRow = this->validate(row);
   Handle h = this->append(fullRow);
   delete fullRow;

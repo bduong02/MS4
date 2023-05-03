@@ -8,6 +8,10 @@
  */
 #include "SQLExec.h"
 #include "schema_tables.h"
+#include "schema_tables.cpp"
+#include "ParseTreeToString.h"
+#include "ParseTreeToString.cpp"
+
 
 using namespace std;
 using namespace hsql;
@@ -52,8 +56,11 @@ QueryResult::~QueryResult() {
 
 
 QueryResult *SQLExec::execute(const SQLStatement *statement) {
+    cout << "Init tables"<<endl;
     // FIXME: initialize _tables table, if not yet present
-    // initialize_schema_tables();
+    initialize_schema_tables();
+
+    cout << "done initializing tables"<<endl;
 
     try {
         switch (statement->type()) {
@@ -80,7 +87,14 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
 // column attributes are data types
 void
 SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name, ColumnAttribute &column_attribute) {
-    column_attribute = ColumnAttribute((ColumnAttribute::DataType)col->type);
+    // convert column definition data type to ColumnAttribute data type, since their enums are different
+    if(col->type == ColumnDefinition::DataType::TEXT){
+        column_attribute = ColumnAttribute(ColumnAttribute::DataType::TEXT);
+    }else if(col->type == ColumnDefinition::DataType::INT){
+        column_attribute = ColumnAttribute(ColumnAttribute::DataType::INT);
+    }else{ // for now, we're only handling int and text
+        throw SQLExecError("Invalid data type: needs to be int or text");
+    }
     column_name = Identifier(col->name);
     // throw SQLExecError("not implemented");  // FIXME
 }
@@ -98,15 +112,19 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     ColumnAttributes columnAttributes; // list of all column data types
     bool allDigits = false; // checks if the column name is all digits
     bool acceptableColName = true;
+
+    // check if the table name is a reserved word
+    if(ParseTreeToString::is_reserved_word(statement->tableName))
+        return new QueryResult("table name is a reserved word");
     
-    // check column data type and name
+    // check constraints
     for(ColumnDefinition* column : *(statement->columns)){
         column_definition(column, columnName, columnAttribute); // get name and data type
 
         // check if the column name is all digits
         for(char c : columnName){
             if(!isdigit(c))
-                allDigits = true;
+                allDigits = false;
         }
         if(allDigits){
             cout << "The column name cannot be all digits" << endl;
@@ -123,12 +141,14 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
             return new QueryResult("Unacceptable column name");
         }
 
-        // TODO: check if it's an SQL keyword...
+        if(ParseTreeToString::is_reserved_word(columnName)){
+            return new QueryResult("col name is a reserved word");
+        }
 
         // check if the data type is valid (int or text)
         if(columnAttribute.get_data_type() != ColumnAttribute::DataType::INT 
             && columnAttribute.get_data_type() != ColumnAttribute::DataType::TEXT){
-            cout << "Invalid data type: " << endl;
+            cout << "Invalid data type: " << columnAttribute.get_data_type() << endl;
             return new QueryResult("Invalid data type");
         }
         
@@ -136,28 +156,49 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         columnNames.push_back(columnName);
     }
 
+    cout << "out of loop" << endl;
+
     // add the table name to tables
-    ValueDict tableRow = ValueDict();
-    tableRow.insert({"table_name", Value(statement->tableName)});
-    tables->insert(&tableRow);
+    ValueDict* tableRow = new ValueDict();
+
+
+
+    cout << "abcd" << endl;
+    tableRow->insert({"table_name", Value(statement->tableName)});
+    cout << "efgh" << endl;
+    // tables->insert(tableRow); // seg fault here
+
+    // cout << "declared table row" << endl;
 
     // add the column names and types to Columns
     ValueDict columnsRow = ValueDict(); // row to add to the Columns table
     columnsRow["table_name"] = Value(statement->tableName);
 
+    cout << "declared columns row" << endl;
+
     // for each column, add a row to the Columns table
     for(int i=0; i < columnNames.size(); i++){
-        columnsRow["column_name"] = Value((columnNames[i]));
-        columnsRow["datatype"] = Value(columnAttributes[i].get_data_type());
-        
-        // I can't call the Columns constructor
-        // Columns columnsTable;
-        // columnsTable.insert(&columnsRow);
-        // columnsRow.erase("column_name"); // get rid of the old column name to add a row with the next column name
-        // columnsRow.erase("datatype"); // get rid of the old datatype to add a row with the next column name
+        cout << "in second loop"<<endl;
+
+        columnsRow.insert({"column_name", Value((columnNames[i]))});
+
+        cout << "inserted colname"<<endl;
+        columnsRow.insert({"datatype", Value((columnAttributes[i].get_data_type()))});
+        cout << "inserted datatype"<<endl;
+
+        // Is this how I access the Columns table? Exception here
+        Columns().insert(&columnsRow);
+
+        cout << "inserted"<<endl;
+        columnsRow.erase("column_name"); // get rid of the old column name to add a row with the next column name
+        columnsRow.erase("datatype"); // get rid of the old datatype to add a row with the next column name
     }
 
+    cout << "out of second loop"<<endl;
+
     ValueDicts* v = new ValueDicts(); // empty ValueDicts for the QueryResult
+
+    cout << "will return" << endl;
     return new QueryResult(&columnNames, &columnAttributes, v, "");
 }
 

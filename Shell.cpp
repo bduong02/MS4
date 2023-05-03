@@ -17,6 +17,8 @@
 
 using namespace std;
 using namespace hsql;
+const unsigned int BLOCK_SZ = 4096; // lines 20-21 added by David from Haley & David's milestone 1
+const char *MILESTONE1 = "milestone1.db";
 
 DbEnv *_DB_ENV;
 
@@ -42,11 +44,21 @@ int main(int argc, char* argv[]) {
     try {
         environment.set_message_stream(&cout);
 	    environment.set_error_stream(&cerr);
-	    environment.open(envDirPath.c_str(), DB_CREATE, 0);
+	    environment.open(envDirPath.c_str(), DB_CREATE | DB_INIT_MPOOL, 0);
     } catch(DbException &E) {
         cout << "Error creating DB environment" << endl;
         exit(EXIT_FAILURE);
     }
+
+    // lines 52-57 added by David from Haley and David's code: open the DB
+    Db db(&environment, 0);
+	db.set_message_stream(environment.get_message_stream());
+	db.set_error_stream(environment.get_error_stream());
+	db.set_re_len(BLOCK_SZ);
+	int id = db.open(NULL, MILESTONE1, NULL, DB_RECNO, DB_CREATE | DB_TRUNCATE, 0644);
+    if(id == 0) cout << "In main, opened successfully" << endl;
+
+
     _DB_ENV = &environment;
 
     //MILESTONE 2 TESTS
@@ -85,6 +97,8 @@ int main(int argc, char* argv[]) {
 	}
     } 
 
+    environment.close(0);
+    // environment.remove(envDirPath.c_str(), 0);
     return 0;
 }
 
