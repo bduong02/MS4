@@ -8,7 +8,7 @@ EXECUTABLE_FILE = sql4300
 all: Shell
 
 Shell: Shell.o heap_storage.o SQLExec.o
-	g++ -L/usr/local/db6/lib -o $(EXECUTABLE_FILE) Shell.o heap_storage.o SQLExec.o -ldb_cxx -lsqlparser
+	g++ -L/usr/local/db6/lib -L../sql-parser -o $(EXECUTABLE_FILE) Shell.o heap_storage.o SQLExec.o -ldb_cxx -lsqlparser2
 
 Shell.o:       heap_storage.h storage_engine.h
 heap_storage.o: heap_storage.h storage_engine.h
