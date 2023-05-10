@@ -172,7 +172,7 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     for(auto i : (*tableRow))
             cout << i.first << ", " << (i.second).s << endl;
 
-    tables->insert((const ValueDict*)tableRow); // seg fault here
+    tables->insert(tableRow); // seg fault here
 
     // cout << "declared table row" << endl;
 

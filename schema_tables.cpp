@@ -113,19 +113,19 @@ void Tables::create() {
 Handle Tables::insert(const ValueDict *row) {
     // Try SELECT * FROM _tables WHERE table_name = row["table_name"] and it should return nothing
     Handles *handles = select(row);
-    cout <<"selected"<<endl;
-    cout << "something"<<endl; // seg fault right before this
-    cout << (*handles)[0].first << endl;
+    cout << "hello sql"<<endl;
+    cout << "Is handles null? " << (handles == nullptr) << endl;
+    // cout << (*handles)[0].first << endl;
     
     // for(Handle handle : *handles){
     //     cout << "Handle: " << handle.first << " " << handle.second << endl;
     // }
 
-    bool unique = handles->empty();
-    cout << "unique"<<endl;
-    delete handles;
-    if (!unique)
-        throw DbRelationError(row->at("table_name").s + " already exists");
+    // bool unique = handles->empty();
+    // cout << "unique"<<endl;
+    // delete handles;
+    // if (!unique)
+    //     throw DbRelationError(row->at("table_name").s + " already exists");
     return HeapTable::insert(row);
 }
 

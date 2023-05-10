@@ -453,18 +453,23 @@ Handles* HeapTable::select(const ValueDict *where) {
                   if((*unmarshaledRecord)[whereKey].s != whereValue.s)
                     selectRecord = false;
                 }
+
+                if(selectRecord) // if the record meets the selection condition, add that record to the list of handles
+                  handles->push_back(Handle(block_id, record_id));
   
                 wherePair++;
             }
             
-            if(selectRecord) // if the record meets the selection condition, add that record to the list of handles
-              handles->push_back(Handle(block_id, record_id));
+            
             delete unmarshaledRecord;
         }
 
         delete record_ids;
         delete block;
   }
+
+  cout << "Size of handles: " << handles->size() << " Is it empty? " << handles->empty() << endl;
+
   delete block_ids;
   return handles;
 }
