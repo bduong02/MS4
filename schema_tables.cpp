@@ -90,22 +90,42 @@ void Tables::create() {
 }
 
 // Manually check that table_name is unique.
+// Handle Tables::insert(const ValueDict *row) {
+//     // Try SELECT * FROM _tables WHERE table_name = row["table_name"] and it should return nothing
+//     cout << "In tables::insert"<<endl;
+//     Handles *handles = select(row);
+//     cout <<"selected"<<endl;
+
+//     // David's line changes to check if handles is null
+//     if(handles != nullptr){
+//         cout << "in if"<<endl;
+//         bool unique = handles->empty();
+//         cout << "going to delete handles"<<endl;
+//         delete handles;
+//         cout <<"deleted handles"<<endl;
+//     }
+//     if (!unique)
+//         throw DbRelationError(row->at("table_name").s + " already exists");
+//     cout <<"exiting tables::insert"<<endl;
+//     return HeapTable::insert(row);
+// }
+
 Handle Tables::insert(const ValueDict *row) {
     // Try SELECT * FROM _tables WHERE table_name = row["table_name"] and it should return nothing
-    cout << "In tables::insert"<<endl;
     Handles *handles = select(row);
     cout <<"selected"<<endl;
+    cout << "something"<<endl; // seg fault right before this
+    cout << (*handles)[0].first << endl;
+    
+    // for(Handle handle : *handles){
+    //     cout << "Handle: " << handle.first << " " << handle.second << endl;
+    // }
 
-    // David's line changes to check if handles is null
-    if(handles != nullptr){
-        bool unique = handles->empty();
-        cout << "going to delete handles"<<endl;
-        delete handles;
-        cout <<"deleted handles"<<endl;
-    }
+    bool unique = handles->empty();
+    cout << "unique"<<endl;
+    delete handles;
     if (!unique)
         throw DbRelationError(row->at("table_name").s + " already exists");
-    cout <<"exiting tables::insert"<<endl;
     return HeapTable::insert(row);
 }
 

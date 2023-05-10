@@ -329,7 +329,8 @@ Handle HeapTable::insert(const ValueDict *row) {
 // return the bits to go into the file
 // caller responsible for freeing the returned Dbt and its enclosed ret->get_data().
 Dbt* HeapTable::marshal(const ValueDict* row) {
-  char *bytes = new char[DbBlock::BLOCK_SZ]; // more than we need (we insist that one row fits into DbBlock::BLOCK_SZ)
+  char *bytes =
+   new char[DbBlock::BLOCK_SZ]; // more than we need (we insist that one row fits into DbBlock::BLOCK_SZ)
   uint offset = 0;
   uint col_num = 0;
   for (auto const& column_name: this->column_names) {
@@ -396,6 +397,112 @@ ValueDict* HeapTable::validate(const ValueDict *row) {
   }
 
   return completeRow;
+}
+
+Handles* HeapTable::select() {
+  Handles* handles = new Handles();
+    BlockIDs* block_ids = file.block_ids();
+    for (auto const& block_id: *block_ids) {
+        SlottedPage* block = file.get(block_id);
+        RecordIDs* record_ids = block->ids();
+        for (auto const& record_id: *record_ids)
+            handles->push_back(Handle(block_id, record_id));
+        delete record_ids;
+        delete block;
+    }
+    delete block_ids;
+    return handles;
+}
+
+/*
+Executes "SELECT WHERE"
+where is {ColumnName : Value, ColumnName2, Value2, ...,}
+Select only the records where data[ColumnName] == Value
+*/
+Handles* HeapTable::select(const ValueDict *where) {
+  cout << "in select where" << endl;
+  Handles* handles = new Handles();
+  Identifier whereKey;
+  Value whereValue;
+  BlockIDs* block_ids = file.block_ids();
+  for (auto const& block_id: *block_ids) {
+        SlottedPage* block = file.get(block_id);
+        RecordIDs* record_ids = block->ids();
+
+        // for each record, retrieve it to check if it meets the select condition.
+        // If it does, add it to handles
+        for (auto const& record_id: *record_ids){
+            Dbt* record = block->get(record_id); // get a Dbt that holds the record for that record_id
+            ValueDict* unmarshaledRecord = unmarshal(record); // unmarshal the Dbt and turn it into a ValueDict so I can do the select statement
+            delete record;
+            bool selectRecord = true; // whether to include this record in the list of selected records
+            auto wherePair = where->begin(); // column/value pair in "where"
+
+            // go through all the elements in the record; if one of them doesn't meet the "where" condition,
+            // don't return this record
+            while(selectRecord && wherePair != where->end()){
+                whereKey = wherePair->first;
+                whereValue = wherePair->second;
+
+                // if the Value data type is INT, compare the values of n. If the data type
+                // is TEXT, compare the values of s.
+                if(whereValue.data_type == ColumnAttribute::DataType::INT){
+                  if((*unmarshaledRecord)[whereKey].n != whereValue.n)
+                    selectRecord = false;
+                }else if(whereValue.data_type == ColumnAttribute::DataType::TEXT){
+                  if((*unmarshaledRecord)[whereKey].s != whereValue.s)
+                    selectRecord = false;
+                }
+  
+                wherePair++;
+            }
+            
+            if(selectRecord) // if the record meets the selection condition, add that record to the list of handles
+              handles->push_back(Handle(block_id, record_id));
+            delete unmarshaledRecord;
+        }
+
+        delete record_ids;
+        delete block;
+  }
+  delete block_ids;
+  return handles;
+}
+
+/**
+ * Unmarshal column names from given Dbt
+ * @param data the Dbt to unmarshal
+ * @return a ValueDict of the unmarshaled data
+ */
+ValueDict *HeapTable::unmarshal(Dbt *data) {
+    ValueDict *dict = new ValueDict();
+    Value value;
+    char *bytes = (char *) data->get_data();
+    uint offset = 0;
+    uint col_num = 0;
+    for (auto const &column : column_names) {
+        ColumnAttribute ca = column_attributes[col_num++];
+        value.data_type = ca.get_data_type();
+        if (value.data_type == ColumnAttribute::DataType::INT) {
+            value.n = *(int32_t *) (bytes + offset);
+            offset += sizeof(int32_t);
+        }
+        else if (value.data_type == ColumnAttribute::DataType::TEXT) {
+            uint size = *(int32_t *) (bytes + offset);
+            offset += sizeof(uint);
+            char buffer[DbBlock::BLOCK_SZ];
+            memcpy(buffer, bytes + offset, size);
+            buffer[size] = '\0';
+            value.s = std::string(buffer); 
+            offset += size;
+        }
+        else {
+            throw DbRelationError("Data type not supported");
+        }
+        (*dict)[column] = value;
+    }
+
+    return dict;
 }
 
 //-----------------------------------------

@@ -166,9 +166,9 @@ public:
 
     virtual void del(const Handle handle) {};
 
-    virtual Handles *select() {return nullptr;};
+    virtual Handles *select();
 
-    virtual Handles *select(const ValueDict *where) {return nullptr;};
+    virtual Handles *select(const ValueDict *where);
 
     virtual ValueDict *project(Handle handle) {return nullptr;};
 
@@ -183,7 +183,7 @@ protected:
 
     virtual Dbt *marshal(const ValueDict *row);
 
-    virtual ValueDict *unmarshal(Dbt *data) {return nullptr;};
+    virtual ValueDict *unmarshal(Dbt *data);
 };
 
 bool test_heap_storage();
