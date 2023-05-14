@@ -17,7 +17,6 @@ void initialize_schema_tables() {
     Indices indices;
     indices.create_if_not_exists();
     indices.close();
-
 }
 
 // Not terribly useful since the parser weeds most of these out
@@ -124,30 +123,37 @@ void Tables::get_columns(Identifier table_name, ColumnNames &column_names, Colum
 
     cout << "in get_columns, calling select where"<<endl;
     Handles *handles = Tables::columns_table->select(&where);
-    cout << "returned from select where"<<endl;
+    cout << "returned from select where, back in getColumns"<<endl;
+    cout << "is handles null? " << (handles == nullptr ? "Yes":"No");
+    if(handles != nullptr) cout << "handles size: " << handles->size()<<endl;
 
     ColumnAttribute column_attribute;
-    for (auto const &handle: *handles) {
-        ValueDict *row = Tables::columns_table->project(
-                handle);  // get the row's values: {'column_name': <name>, 'data_type': <type>}
 
-        Identifier column_name = (*row)["column_name"].s;
-        column_names.push_back(column_name);
+    if(!handles->empty()){ // check for empty added by David
+        for (auto const &handle: *handles) {
+            cout << "in loop" << endl;
+            ValueDict *row = Tables::columns_table->project(
+                    handle);  // get the row's values: {'column_name': <name>, 'data_type': <type>}
 
-        ColumnAttribute::DataType data_type;
-        if ((*row)["data_type"].s == "INT")
-            data_type = ColumnAttribute::INT;
-        else if ((*row)["data_type"].s == "TEXT")
-            data_type = ColumnAttribute::TEXT;
-        else if ((*row)["data_type"].s == "BOOLEAN")
-            data_type = ColumnAttribute::BOOLEAN;
-        else
-            throw DbRelationError("Unknown data type");
-        column_attribute.set_data_type(data_type);
+            cout << "returned from project" << endl;
+            Identifier column_name = (*row)["column_name"].s;
+            column_names.push_back(column_name);
 
-        column_attributes.push_back(column_attribute);
+            ColumnAttribute::DataType data_type;
+            if ((*row)["data_type"].s == "INT")
+                data_type = ColumnAttribute::INT;
+            else if ((*row)["data_type"].s == "TEXT")
+                data_type = ColumnAttribute::TEXT;
+            else if ((*row)["data_type"].s == "BOOLEAN")
+                data_type = ColumnAttribute::BOOLEAN;
+            else
+                throw DbRelationError("Unknown data type");
+            column_attribute.set_data_type(data_type);
 
-        delete row;
+            column_attributes.push_back(column_attribute);
+
+            delete row;
+        }
     }
     delete handles;
     cout << "returning from getColumns"<<endl;
@@ -238,6 +244,7 @@ void Columns::create() {
 
 // Manually check that (table_name, column_name) is unique.
 Handle Columns::insert(const ValueDict *row) {
+    cout << "In Columns::insert"<<endl;
     // Check that datatype is acceptable
     if (!is_acceptable_identifier(row->at("table_name").s))
         throw DbRelationError("unacceptable table name '" + row->at("table_name").s + "'");
@@ -257,6 +264,7 @@ Handle Columns::insert(const ValueDict *row) {
     if (!unique)
         throw DbRelationError("duplicate column " + row->at("table_name").s + "." + row->at("column_name").s);
 
+    cout << "returning from Columns::insert" <<endl;
     return HeapTable::insert(row);
 }
 

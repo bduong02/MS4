@@ -59,16 +59,59 @@ QueryResult::~QueryResult() {
     // FIXME
 }
 
+void SQLExec::initialize_schema_tables() {
+    // if(tables == nullptr){
+    //     tables = new Tables();
+    //     tables->create_if_not_exists();
+    //     tables->close();
+    // }
+    // if(columns == nullptr){
+    //     columns = new Tables();
+    //     columns->create_if_not_exists();
+    //     columns->close();
+    // }if(indices == nullptr){
+    //     indices = new Tables();
+    //     indices->create_if_not_exists();
+    //     indices->close();
+    // }
+}
+
 
 QueryResult *SQLExec::execute(const SQLStatement *statement) {
     cout << "Init tables"<<endl;
     // FIXME: initialize _tables table, if not yet present
-    initialize_schema_tables();
+    // this->initialize_schema_tables();
 
-    if(tables == nullptr) // lines 63-64 were taken from Canvas
+    // tables->create_if_not_exists();
+    // tables->close();
+    // // Columns columns;
+    // columns->create_if_not_exists();
+    // columns->close();
+    // // Indices indices;
+    // indices->create_if_not_exists();
+    // indices->close();
+
+    // if(tables == nullptr) // lines 63-64 were taken from Canvas
+    //     tables = new Tables();
+    // if(columns == nullptr) // lines 63-64 were taken from Canvas
+    //     columns = new Columns();
+    // if(indices == nullptr) // lines 63-64 were taken from Canvas
+    //     indices = new Indices();
+
+    if(tables == nullptr){
         tables = new Tables();
-    if(columns == nullptr) // lines 63-64 were taken from Canvas
+        tables->create_if_not_exists();
+        tables->close();
+    }
+    if(columns == nullptr){
         columns = new Columns();
+        columns->create_if_not_exists();
+        columns->close();
+    }if(indices == nullptr){
+        indices = new Indices();
+        indices->create_if_not_exists();
+        indices->close();
+    }
 
 
     cout << "done initializing tables"<<endl;
@@ -112,9 +155,9 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
 }
 
 // Creating a new index:
-// •	Get the underlying table. 
-// •	Check that all the index columns exist in the table.
-// •	Insert a row for each column in index key into _indices. I recommend having a static reference to _indices in SQLExec, as we do for _tables.
+// •	Get the underlying table. - bugs
+// •	Check that all the index columns exist in the table. - bugs
+// •	Insert a row for each column in index key into _indices. -bugs
 // •	Call get_index to get a reference to the new index and then invoke the create method on it.
 // Dropping an index:
 // •	Call get_index to get a reference to the index and then invoke the drop method on it.
@@ -126,9 +169,9 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
 
 QueryResult *SQLExec::create(const CreateStatement *statement) {
     if(statement->type == CreateStatement::CreateType::kIndex){
-        cout << "in create index " << "Table name: " << statement->tableName << endl
-             << "index name: " << statement->indexName
-             << " index type: " << statement->indexType << " index columns: ";
+        // cout << "in create index " << "Table name: " << statement->tableName << endl
+        //      << "index name: " << statement->indexName
+        //      << " index type: " << statement->indexType << " index columns: ";
 
         for(char* indexCol : *(statement->indexColumns))
             cout << indexCol << " ";
@@ -136,19 +179,22 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         cout << endl;
 
         // get the columns of the table to check if the index column exists
-        ColumnAttributes columnAttributes;
-        ColumnNames tableColumnNames;
+        ColumnAttributes columnAttributes = ColumnAttributes();
+        ColumnNames tableColumnNames = ColumnNames();
         cout <<"calling getColumns from create"<<endl;
         Tables::get_columns(statement->tableName, tableColumnNames, columnAttributes);
 
-        cout << "The columns in " << statement->tableName << ": ";
-        for(int i=0; i < tableColumnNames.size(); i++)
-            cout << tableColumnNames.at(i) << " : " << columnAttributes.at(i).get_data_type() << endl;
+        cout << "tableColumnNames size: "<<tableColumnNames.size() << "columnAttrs size: "
+            <<columnAttributes.size() << endl;
+
+        // cout << "The columns in " << statement->tableName << ": ";
+        // for(int i=0; i < tableColumnNames.size(); i++)
+        //     cout << tableColumnNames.at(i) << " : " << columnAttributes.at(i).get_data_type() << endl;
         
         bool found; // whether the index columns are columns in the table
         int index; // array index for columnNames and columnAttributes
         
-        // make sure all the index columns are in the table: TODO: finish this later
+        // Check that all the index columns exist in the table. TODO: finish/test this later
         // for(char* indexCol : *(statement->indexColumns)){
         //     found = false;
         //     index = 0;
@@ -163,13 +209,16 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         //     }
         // }
 
+        // Insert a row for each column in index key into _indices
         int seqInIndex = 1; // to track the order of the columns in a composite index
-        ValueDict* indicesRow;
+        ValueDict* indicesRow = new ValueDict();
 
         // TODO: check if statement->tableName is null - will the parser do that?
         (*indicesRow)["table_name"] = Value(statement->tableName);
         (*indicesRow)["index_name"] = Value(statement->indexName);
         (*indicesRow)["index_type"] = Value(statement->indexType);
+
+        cout << "added the first 3 cols to indicesRow" <<endl;
 
         if(statement->indexType == "BTREE") 
             (*indicesRow)["is_unique"] = false;
@@ -182,13 +231,27 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         for(char* indexCol : *(statement->indexColumns)){
             (*indicesRow)["column_name"] = Value(indexCol);
             (*indicesRow)["seq_in_index"] = Value(seqInIndex);
+
+            cout << endl << endl << "------------------------ indicesRow: -------------------------" << endl;
+            for(auto element : *indicesRow){
+                // change this to account for bool
+                cout << element.first << " ";
+                if(element.second.data_type == ColumnAttribute::DataType::INT) cout << element.second.n << endl;
+                else if(element.second.data_type == ColumnAttribute::DataType::TEXT) cout << element.second.s << endl;
+                else cout << "The data type = bool"<<endl;
+            }
+
+            cout << "Is indices null? " << (indices==nullptr ? "Y":"N")<<endl;
+
             cout << "about to insert into indices"<<endl;
             indices->insert(indicesRow);
             cout << "inserted into indices"<<endl;
             seqInIndex++;
         }
         
-
+        // DbIndex indexTable = Indices::get_index(Identifier(statement->tableName), Identifier(statement->indexName));
+        // Question: How do I call the create method on a table?
+        // string indexTableCreateStmt
 
 
     }else if(statement->type == CreateStatement::CreateType::kTable){
@@ -270,9 +333,10 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
             for(auto pairr : (*columnsRow))
                 cout << pairr.first << ", " << pairr.second.s << endl;
 
+            cout << "in sqlexec::create, about to call Columns::insert"<<endl;
             columns->insert(columnsRow);
 
-            cout << "inserted"<<endl;
+            cout << "Returned from columns::insert, back in create"<<endl;
             (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
             (*columnsRow).erase("data_type"); // get rid of the old datatype to add a row with the next column name
         }

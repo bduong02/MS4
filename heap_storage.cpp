@@ -240,7 +240,10 @@ SlottedPage* HeapFile::get(BlockID blockID) {
   //assign data from db using defined key and return 
   //in slotted page format
   this->db.get(nullptr, &key, &data, 0);
-  
+  cout << "data:" << data.get_data()<< " data size: " << data.get_size()
+       << "Making a new SlottedPage"<<endl;
+  SlottedPage* page = new SlottedPage(data, blockID, false);
+
   cout << "returning from HeapFile::get"<<endl;
   return new SlottedPage(data, blockID, false);
 }
@@ -329,6 +332,7 @@ Handle HeapTable::insert(const ValueDict *row) {
   cout << "validated" <<endl;
   Handle h = this->append(fullRow);
   delete fullRow;
+  cout << "returning from heaptable::insert"<<endl;
   return h;
 }
                      
@@ -370,9 +374,9 @@ Handle HeapTable::append(const ValueDict *row) {
 
   cout << "marshalled"<< endl;
   SlottedPage* block = this->file.get(this->file.get_last_block_id());
-
-  cout << "Got the last blockid" << endl;
   RecordID id;
+  cout << "Is block null? " << (block == nullptr ? "Y":"N")<<endl;
+
 
   try {
     id = block->add(data);
@@ -437,50 +441,66 @@ Select only the records where data[ColumnName] == Value
 Handles* HeapTable::select(const ValueDict *where) {
   cout << "in select where" << endl;
   Handles* handles = new Handles();
-  Identifier whereKey;
-  Value whereValue;
+
+  cout << "getting blockids"<<endl;
   BlockIDs* block_ids = file.block_ids();
-  for (auto const& block_id: *block_ids) {
-        SlottedPage* block = file.get(block_id);
-        RecordIDs* record_ids = block->ids();
+  cout << "got blockids" << "null? " << (block_ids == nullptr ? "Yes":"No") << endl;
+  if(block_ids != nullptr)
+    cout << "blockids size: " << block_ids->size() <<endl;
 
-        // for each record, retrieve it to check if it meets the select condition.
-        // If it does, add it to handles
-        for (auto const& record_id: *record_ids){
-            Dbt* record = block->get(record_id); // get a Dbt that holds the record for that record_id
-            ValueDict* unmarshaledRecord = unmarshal(record); // unmarshal the Dbt and turn it into a ValueDict so I can do the select statement
-            delete record;
-            bool selectRecord = true; // whether to include this record in the list of selected records
-            auto wherePair = where->begin(); // column/value pair in "where"
+  if(!block_ids->empty()){
+    Identifier whereKey;
+    Value whereValue;
+    for (auto const& block_id: *block_ids) {
+          cout << "about to call file.get" << endl;
+          SlottedPage* block = file.get(block_id);
+          cout << endl << "got file" << endl;
+          RecordIDs* record_ids = block->ids();
+          cout << endl << "got ids" << endl;
 
-            // go through all the elements in the record; if one of them doesn't meet the "where" condition,
-            // don't return this record
-            while(selectRecord && wherePair != where->end()){
-                whereKey = wherePair->first;
-                whereValue = wherePair->second;
+          // for each record, retrieve it to check if it meets the select condition.
+          // If it does, add it to handles
+          for (auto const& record_id: *record_ids){
+              Dbt* record = block->get(record_id); // get a Dbt that holds the record for that record_id
+              cout << "got the record " << "null? " << (record == nullptr? "Yes" : "No");
+              ValueDict* unmarshaledRecord = unmarshal(record); // unmarshal the Dbt and turn it into a ValueDict so I can do the select statement
+              cout << "Unmarshaled record:" << "null? " << (record == nullptr? "Yes" : "No") <<endl;
 
-                // if the Value data type is INT, compare the values of n. If the data type
-                // is TEXT, compare the values of s.
-                if(whereValue.data_type == ColumnAttribute::DataType::INT){
-                  if((*unmarshaledRecord)[whereKey].n != whereValue.n)
-                    selectRecord = false;
-                }else if(whereValue.data_type == ColumnAttribute::DataType::TEXT){
-                  if((*unmarshaledRecord)[whereKey].s != whereValue.s)
-                    selectRecord = false;
-                }
+              delete record;
+              bool selectRecord = true; // whether to include this record in the list of selected records
+              auto wherePair = where->begin(); // column/value pair in "where"
 
-                if(selectRecord) // if the record meets the selection condition, add that record to the list of handles
-                  handles->push_back(Handle(block_id, record_id));
-  
-                wherePair++;
-            }
-            
-            
-            delete unmarshaledRecord;
-        }
+              // go through all the elements in the record; if one of them doesn't meet the "where" condition,
+              // don't return this record
+              while(selectRecord && wherePair != where->end()){
+                  whereKey = wherePair->first;
+                  whereValue = wherePair->second;
 
-        delete record_ids;
-        delete block;
+                  // if the Value data type is INT, compare the values of n. If the data type
+                  // is TEXT, compare the values of s.
+                  if(whereValue.data_type == ColumnAttribute::DataType::INT){
+                    if((*unmarshaledRecord)[whereKey].n != whereValue.n)
+                      selectRecord = false;
+                  }else if(whereValue.data_type == ColumnAttribute::DataType::TEXT){
+                    if((*unmarshaledRecord)[whereKey].s != whereValue.s)
+                      selectRecord = false;
+                  }
+
+                  if(selectRecord) // if the record meets the selection condition, add that record to the list of handles
+                    handles->push_back(Handle(block_id, record_id));
+    
+                  wherePair++;
+              }
+              
+              
+              delete unmarshaledRecord;
+          }
+
+          delete record_ids;
+          delete block;
+    }
+  }else{
+    cout << "blockids is empty"<<endl;
   }
 
   cout << "Size of handles: " << handles->size() << " Is it empty? " << handles->empty() << endl;
@@ -532,6 +552,7 @@ ValueDict *HeapTable::unmarshal(Dbt *data) {
  * @return a ValueDict of the row's data
  */
 ValueDict *HeapTable::project(Handle handle) {
+    cout << "in project"<< endl;
     throw DbRelationError("Project not implemented");
 }
 
@@ -542,6 +563,7 @@ ValueDict *HeapTable::project(Handle handle) {
  * @return a ValueDict of the row's data
  */
 ValueDict *HeapTable::project(Handle handle, const ColumnNames *column_names) {
+    cout << "in project"<< endl;
     throw DbRelationError("Project not implemented");
 }
 

@@ -70,6 +70,9 @@ protected:
     static Indices *indices;
     static Columns *columns;
 
+    //initializes all 3 tables
+    void initialize_schema_tables();
+
     // recursive decent into the AST
     static QueryResult *create(const hsql::CreateStatement *statement);
 
