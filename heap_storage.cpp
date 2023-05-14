@@ -486,6 +486,7 @@ Handles* HeapTable::select(const ValueDict *where) {
   cout << "Size of handles: " << handles->size() << " Is it empty? " << handles->empty() << endl;
 
   delete block_ids;
+  cout << "returning from select where"<<endl;
   return handles;
 }
 
@@ -524,5 +525,25 @@ ValueDict *HeapTable::unmarshal(Dbt *data) {
 
     return dict;
 }
+
+/**
+ * Extracts specific fields from a row Handle
+ * @param handle the handle of the row
+ * @return a ValueDict of the row's data
+ */
+ValueDict *HeapTable::project(Handle handle) {
+    throw DbRelationError("Project not implemented");
+}
+
+/**
+ * Extracts specific fields from a row Handle and column names
+ * @param handle the handle of the row
+ * @param column_names the names of the columns to project
+ * @return a ValueDict of the row's data
+ */
+ValueDict *HeapTable::project(Handle handle, const ColumnNames *column_names) {
+    throw DbRelationError("Project not implemented");
+}
+
 
 //-----------------------------------------

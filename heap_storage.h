@@ -170,9 +170,10 @@ public:
 
     virtual Handles *select(const ValueDict *where);
 
-    virtual ValueDict *project(Handle handle) {return nullptr;};
+    // TODO: implement these; this may be where the seg fault is
+    virtual ValueDict *project(Handle handle);
 
-    virtual ValueDict *project(Handle handle, const ColumnNames *column_names) {return nullptr;};
+    virtual ValueDict *project(Handle handle, const ColumnNames *column_names);
 
 protected:
     HeapFile file;

@@ -22,6 +22,7 @@ const string TABLE_NAME = "table_name";
 // define static data
 Tables *SQLExec::tables = nullptr;
 Columns *SQLExec::columns = nullptr;
+Indices *SQLExec::indices = nullptr;
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres) {
@@ -75,6 +76,7 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
     try {
         switch (statement->type()) {
             case kStmtCreate:
+                cout << "going to create"<<endl;
                 return create((const CreateStatement *) statement);
             case kStmtDrop:
                 return drop((const DropStatement *) statement);
@@ -109,101 +111,178 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
     // throw SQLExecError("not implemented");  // FIXME
 }
 
-// // name constraints:
-// and also that table_name and column_name are acceptable (
-// consisting of one or more basic Latin letters, digits 0-9, dollar signs, underscores, but not all digits, 
-// and not be an SQL reserved word). We won't allow quoted names in our pared down SQL.
+// Creating a new index:
+// •	Get the underlying table. 
+// •	Check that all the index columns exist in the table.
+// •	Insert a row for each column in index key into _indices. I recommend having a static reference to _indices in SQLExec, as we do for _tables.
+// •	Call get_index to get a reference to the new index and then invoke the create method on it.
+// Dropping an index:
+// •	Call get_index to get a reference to the index and then invoke the drop method on it.
+// •	Remove all the rows from _indices for this index.
+// Showing index:
+// •	Do a query (using the select method) on _indices for the given table name.
+// Dropping a table:
+// •	Before dropping the table, drop each index on the table.
 
 QueryResult *SQLExec::create(const CreateStatement *statement) {
-    cout << "In create"<<endl;
-    Identifier columnName; // stores name of each column
-    ColumnAttribute columnAttribute = ColumnAttribute(ColumnAttribute::DataType::INT); // data type of each column: use int as a placeholder since I need an argument for the constructor
-    ColumnNames columnNames; // list of all column names
-    ColumnAttributes columnAttributes; // list of all column data types
-    bool allDigits = false; // checks if the column name is all digits
-    bool acceptableColName = true;
+    if(statement->type == CreateStatement::CreateType::kIndex){
+        cout << "in create index " << "Table name: " << statement->tableName << endl
+             << "index name: " << statement->indexName
+             << " index type: " << statement->indexType << " index columns: ";
 
-    // check if the table name is a reserved word
-    if(ParseTreeToString::is_reserved_word(statement->tableName))
-        return new QueryResult("table name is a reserved word");
-    
-    // check constraints
-    for(ColumnDefinition* column : *(statement->columns)){
-        column_definition(column, columnName, columnAttribute); // get name and data type
+        for(char* indexCol : *(statement->indexColumns))
+            cout << indexCol << " ";
+        
+        cout << endl;
 
-        // check if the column name is all digits
-        for(char c : columnName){
-            if(!isdigit(c))
-                allDigits = false;
-        }
-        if(allDigits){
-            cout << "The column name cannot be all digits" << endl;
-            return new QueryResult("The column name cannot be all digits");
-        }
+        // get the columns of the table to check if the index column exists
+        ColumnAttributes columnAttributes;
+        ColumnNames tableColumnNames;
+        cout <<"calling getColumns from create"<<endl;
+        Tables::get_columns(statement->tableName, tableColumnNames, columnAttributes);
 
-        // checks if the column name is acceptable (all letters, digits, $, or _)
-        for(char c : columnName){
-            if(!isalnum(c) && c != '$' && c != '_')
-                acceptableColName = false;
-        }
-        if(!acceptableColName){
-            cout << "The column name has unacceptable characters" << endl;
-            return new QueryResult("Unacceptable column name");
-        }
+        cout << "The columns in " << statement->tableName << ": ";
+        for(int i=0; i < tableColumnNames.size(); i++)
+            cout << tableColumnNames.at(i) << " : " << columnAttributes.at(i).get_data_type() << endl;
+        
+        bool found; // whether the index columns are columns in the table
+        int index; // array index for columnNames and columnAttributes
+        
+        // make sure all the index columns are in the table: TODO: finish this later
+        // for(char* indexCol : *(statement->indexColumns)){
+        //     found = false;
+        //     index = 0;
 
-        if(ParseTreeToString::is_reserved_word(columnName)){
-            return new QueryResult("col name is a reserved word");
-        }
+        //     while(!found && index < tableColumnNames.size()){
+        //         if(tableColumnNames[index] == indexCol)
+        //             found = true;
+        //     }
+        //     if(!found){
+        //         cout << "Index column " << indexCol << " is not in the table" << endl;
+        //         // return new QueryResult("Error: index column not in the table");
+        //     }
+        // }
 
-        // check if the data type is valid (int or text)
-        if(columnAttribute.get_data_type() != ColumnAttribute::DataType::INT 
-            && columnAttribute.get_data_type() != ColumnAttribute::DataType::TEXT){
-            cout << "Invalid data type: " << columnAttribute.get_data_type() << endl;
-            return new QueryResult("Invalid data type");
+        int seqInIndex = 1; // to track the order of the columns in a composite index
+        ValueDict* indicesRow;
+
+        // TODO: check if statement->tableName is null - will the parser do that?
+        (*indicesRow)["table_name"] = Value(statement->tableName);
+        (*indicesRow)["index_name"] = Value(statement->indexName);
+        (*indicesRow)["index_type"] = Value(statement->indexType);
+
+        if(statement->indexType == "BTREE") 
+            (*indicesRow)["is_unique"] = false;
+        else 
+            (*indicesRow)["is_unique"] = true;
+
+        cout << "added the first 4 cols to indicesRow"<<endl;
+        
+        // insert a row into _indices for each column in the index 
+        for(char* indexCol : *(statement->indexColumns)){
+            (*indicesRow)["column_name"] = Value(indexCol);
+            (*indicesRow)["seq_in_index"] = Value(seqInIndex);
+            cout << "about to insert into indices"<<endl;
+            indices->insert(indicesRow);
+            cout << "inserted into indices"<<endl;
+            seqInIndex++;
         }
         
-        columnAttributes.push_back(columnAttribute);
-        columnNames.push_back(columnName);
+
+
+
+    }else if(statement->type == CreateStatement::CreateType::kTable){
+        cout << endl << "In create table"<<endl;
+        Identifier columnName; // stores name of each column
+        ColumnAttribute columnAttribute = ColumnAttribute(ColumnAttribute::DataType::INT); // data type of each column: use int as a placeholder since I need an argument for the constructor
+        ColumnNames columnNames; // list of all column names
+        ColumnAttributes columnAttributes; // list of all column data types
+        bool allDigits = false; // checks if the column name is all digits
+        bool acceptableColName = true;
+
+        // check if the table name is a reserved word
+        if(ParseTreeToString::is_reserved_word(statement->tableName))
+            return new QueryResult("table name is a reserved word");
+        
+        // check constraints
+        for(ColumnDefinition* column : *(statement->columns)){
+            column_definition(column, columnName, columnAttribute); // get name and data type
+
+            // check if the column name is all digits
+            for(char c : columnName){
+                if(!isdigit(c))
+                    allDigits = false;
+            }
+            if(allDigits){
+                cout << "The column name cannot be all digits" << endl;
+                return new QueryResult("The column name cannot be all digits");
+            }
+
+            // checks if the column name is acceptable (all letters, digits, $, or _)
+            for(char c : columnName){
+                if(!isalnum(c) && c != '$' && c != '_')
+                    acceptableColName = false;
+            }
+            if(!acceptableColName){
+                cout << "The column name has unacceptable characters" << endl;
+                return new QueryResult("Unacceptable column name");
+            }
+
+            if(ParseTreeToString::is_reserved_word(columnName)){
+                return new QueryResult("col name is a reserved word");
+            }
+
+            // check if the data type is valid (int or text)
+            if(columnAttribute.get_data_type() != ColumnAttribute::DataType::INT 
+                && columnAttribute.get_data_type() != ColumnAttribute::DataType::TEXT){
+                cout << "Invalid data type: " << columnAttribute.get_data_type() << endl;
+                return new QueryResult("Invalid data type");
+            }
+            
+            columnAttributes.push_back(columnAttribute);
+            columnNames.push_back(columnName);
+        }
+
+        // add the table name to tables
+        ValueDict* tableRow = new ValueDict();
+
+        (*tableRow)["table_name"] = Value(statement->tableName);
+        cout << "printing table row: ";
+
+        for(auto i : (*tableRow))
+                cout << i.first << ", " << (i.second).s << endl;
+
+        // tables->insert(tableRow); // seg fault here
+
+        // add the column names and types to Columns
+        ValueDict* columnsRow = new ValueDict(); // row to add to the Columns table
+        (*columnsRow)["table_name"] = Value(statement->tableName);
+
+        // for each column, add a row to the Columns table
+        for(int i=0; i < columnNames.size(); i++){
+            (*columnsRow)["column_name"] = Value(columnNames[i]);
+
+            if(columnAttributes[i].get_data_type() == ColumnAttribute::DataType::INT)
+                (*columnsRow)["data_type"] = Value("INT");
+            else
+                (*columnsRow)["data_type"] = Value("TEXT");
+                
+            for(auto pairr : (*columnsRow))
+                cout << pairr.first << ", " << pairr.second.s << endl;
+
+            columns->insert(columnsRow);
+
+            cout << "inserted"<<endl;
+            (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
+            (*columnsRow).erase("data_type"); // get rid of the old datatype to add a row with the next column name
+        }
+
+        ValueDicts* v = new ValueDicts(); // empty ValueDicts for the QueryResult
+
+        cout << "will return" << endl;
+        return new QueryResult(&columnNames, &columnAttributes, v, "");
     }
-
-    // add the table name to tables
-    ValueDict* tableRow = new ValueDict();
-
-    (*tableRow)["table_name"] = Value(statement->tableName);
-    cout << "printing table row: ";
-
-    for(auto i : (*tableRow))
-            cout << i.first << ", " << (i.second).s << endl;
-
-    // tables->insert(tableRow); // seg fault here
-
-    // add the column names and types to Columns
-    ValueDict* columnsRow = new ValueDict(); // row to add to the Columns table
-    (*columnsRow)["table_name"] = Value(statement->tableName);
-
-    // for each column, add a row to the Columns table
-    for(int i=0; i < columnNames.size(); i++){
-        (*columnsRow)["column_name"] = Value(columnNames[i]);
-
-        if(columnAttributes[i].get_data_type() == ColumnAttribute::DataType::INT)
-            (*columnsRow)["data_type"] = Value("INT");
-        else
-            (*columnsRow)["data_type"] = Value("TEXT");
-               
-        for(auto pairr : (*columnsRow))
-            cout << pairr.first << ", " << pairr.second.s << endl;
-
-        columns->insert(columnsRow);
-
-        cout << "inserted"<<endl;
-        (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
-        (*columnsRow).erase("data_type"); // get rid of the old datatype to add a row with the next column name
-    }
-
-    ValueDicts* v = new ValueDicts(); // empty ValueDicts for the QueryResult
-
-    cout << "will return" << endl;
-    return new QueryResult(&columnNames, &columnAttributes, v, "");
+    return new QueryResult();
 }
 
 // DROP ...
@@ -232,5 +311,13 @@ QueryResult *SQLExec::show_tables() {
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
     return new QueryResult("not implemented"); // FIXME
+}
+
+QueryResult *SQLExec::show_index(const ShowStatement *statement) {
+     return new QueryResult("show index not implemented"); // FIXME
+}
+
+QueryResult *SQLExec::drop_index(const DropStatement *statement) {
+    return new QueryResult("drop index not implemented");  // FIXME
 }
 
