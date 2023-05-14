@@ -16,8 +16,12 @@
 using namespace std;
 using namespace hsql;
 
+const string TABLE_NAME = "table_name";
+
+
 // define static data
 Tables *SQLExec::tables = nullptr;
+Columns *SQLExec::columns = nullptr;
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres) {
@@ -62,6 +66,9 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
 
     if(tables == nullptr) // lines 63-64 were taken from Canvas
         tables = new Tables();
+    if(columns == nullptr) // lines 63-64 were taken from Canvas
+        columns = new Columns();
+
 
     cout << "done initializing tables"<<endl;
 
@@ -159,56 +166,39 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         columnNames.push_back(columnName);
     }
 
-    cout << "out of loop" << endl;
-
     // add the table name to tables
     ValueDict* tableRow = new ValueDict();
 
-    cout << "abcd" << endl;
     (*tableRow)["table_name"] = Value(statement->tableName);
-    // tableRow->insert({"table_name", Value(statement->tableName)});
-    cout << "printing table row:" << endl;
+    cout << "printing table row: ";
 
     for(auto i : (*tableRow))
             cout << i.first << ", " << (i.second).s << endl;
 
-    tables->insert(tableRow); // seg fault here
-
-    // cout << "declared table row" << endl;
+    // tables->insert(tableRow); // seg fault here
 
     // add the column names and types to Columns
     ValueDict* columnsRow = new ValueDict(); // row to add to the Columns table
     (*columnsRow)["table_name"] = Value(statement->tableName);
 
-    cout << "declared columns row" << endl;
-
     // for each column, add a row to the Columns table
     for(int i=0; i < columnNames.size(); i++){
-        cout << "in second loop"<<endl;
-
         (*columnsRow)["column_name"] = Value(columnNames[i]);
-        cout << "inserted colname"<<endl;
 
-        (*columnsRow)["column_name"] = Value(columnAttributes[i].get_data_type());
-        cout << "inserted datatype"<<endl;
+        if(columnAttributes[i].get_data_type() == ColumnAttribute::DataType::INT)
+            (*columnsRow)["data_type"] = Value("INT");
+        else
+            (*columnsRow)["data_type"] = Value("TEXT");
+               
+        for(auto pairr : (*columnsRow))
+            cout << pairr.first << ", " << pairr.second.s << endl;
 
-        // for (auto it1 = columnsRow.begin(); it1!=columnsRow.end(); ++it1)
-        //     cout << it1->first << "->" << it1->second << endl;
-       
-        for(auto i : (*columnsRow))
-            cout << i.first << ", " << (i.second).s << endl;
+        columns->insert(columnsRow);
 
-        Columns columns;
-
-        // Is this how I access the Columns table? Exception here
-        // columns.insert(columnsRow);
-
-        // cout << "inserted"<<endl;
-        // (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
-        // (*columnsRow).erase("datatype"); // get rid of the old datatype to add a row with the next column name
+        cout << "inserted"<<endl;
+        (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
+        (*columnsRow).erase("data_type"); // get rid of the old datatype to add a row with the next column name
     }
-
-    cout << "out of second loop"<<endl;
 
     ValueDicts* v = new ValueDicts(); // empty ValueDicts for the QueryResult
 

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cstdlib> 
 #include <string>
+#include <filesystem>
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "SQLParserResult.h"
@@ -36,6 +37,19 @@ int main(int argc, char* argv[]) {
         cout << "Invalid argument count" << endl;
         return 1;
     }
+
+    
+    cout << endl << endl << "C++ version"<<endl<<endl;
+    if (__cplusplus == 201703L)
+        std::cout << "C++17" << endl;
+    else if (__cplusplus == 201402L)
+        std::cout << "C++14" << endl;
+    else if (__cplusplus == 201103L)
+        std::cout << "C++11" << endl;
+    else if (__cplusplus == 199711L)
+        std::cout << "C++98" << endl;
+    else
+        std::cout << "pre-standard C++" << endl;
 
     string envDirPath = argv[1];
     
@@ -74,6 +88,12 @@ int main(int argc, char* argv[]) {
         cout << "Heap Tests passed! Moving on to shell...." << endl << endl;
     }
 
+    // Milestone 3 tests
+    if(!MS3Tests::tests()){
+        cout << "MS 3 tests failed" << endl;
+    }else
+        cout << "MS3 tests failed" << endl;
+
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";
     string statementInput = "";
@@ -94,11 +114,19 @@ int main(int argc, char* argv[]) {
                 execute(result);
                 delete result;
             }     
-	}
+	    }
     } 
 
+    // when done, remove all files in the environment
+    // for (const auto & entry : directory_iterator(envDirPath))
+    //     cout << entry.path(envDirPath) << endl;
+
+    db.close(0);
+    // db.remove(0);
     environment.close(0);
-    // environment.remove(envDirPath.c_str(), 0);
+    environment.remove(envDirPath.c_str(), 0); // this doesn't remove DB files
+
+
     return 0;
 }
 

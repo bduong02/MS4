@@ -69,6 +69,10 @@ protected:
     // the one place in the system that holds the _tables table
     static Tables *tables;
 
+    // declared by David - the one place in the system that holds the _columns table
+    static Columns *columns;
+
+
     // recursive decent into the AST
     static QueryResult *create(const hsql::CreateStatement *statement);
 

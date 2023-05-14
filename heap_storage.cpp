@@ -231,12 +231,17 @@ SlottedPage* HeapFile::get_new(void) {
   return new SlottedPage(blockToSlot, blockID, true);
 }
 
+// TODO: the BlockIDs don't reset to 0 when I run the program again.
+// Need to remove the files somehow.
 SlottedPage* HeapFile::get(BlockID blockID) {
+  cout << "In heapFile.get. Last block id: " << this->last << endl;
   Dbt key(&blockID, sizeof(blockID)), data;
 
   //assign data from db using defined key and return 
   //in slotted page format
   this->db.get(nullptr, &key, &data, 0);
+  
+  cout << "returning from HeapFile::get"<<endl;
   return new SlottedPage(data, blockID, false);
 }
 
@@ -321,6 +326,7 @@ Handle HeapTable::insert(const ValueDict *row) {
   this->open();
   cout <<"opened"<<endl;
   ValueDict* fullRow = this->validate(row);
+  cout << "validated" <<endl;
   Handle h = this->append(fullRow);
   delete fullRow;
   return h;
@@ -358,9 +364,14 @@ Dbt* HeapTable::marshal(const ValueDict* row) {
 }  
 
 Handle HeapTable::append(const ValueDict *row) {
+  cout << "\nin append. Last block ID:" << file.get_last_block_id() << endl;
   //marshall row and attempt to insert in current block
   Dbt* data = marshal(row);
+
+  cout << "marshalled"<< endl;
   SlottedPage* block = this->file.get(this->file.get_last_block_id());
+
+  cout << "Got the last blockid" << endl;
   RecordID id;
 
   try {
@@ -371,11 +382,15 @@ Handle HeapTable::append(const ValueDict *row) {
     id = block->add(data);
   }
 
+  cout << "about to put file in block"<<endl;
+
   //add block to file, and delete used memory
   this->file.put(block);
+  cout << "put the block in the file"<<endl;
   delete [] (char *) data->get_data();
   delete data;
   delete block;
+  cout <<"returning"<<endl;
   return Handle(this->file.get_last_block_id(), id);
 }
 

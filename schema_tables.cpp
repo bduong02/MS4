@@ -25,6 +25,7 @@ void initialize_schema_tables() {
 
 // Not terribly useful since the parser weeds most of these out
 bool is_acceptable_identifier(Identifier identifier) {
+    cout << "In is_acceptable_identifier" << endl;
     if (ParseTreeToString::is_reserved_word(identifier))
         return true;
     try {
@@ -236,14 +237,18 @@ void Columns::create() {
 
 // Manually check that (table_name, column_name) is unique.
 Handle Columns::insert(const ValueDict *row) {
-    cout << "in Columns::insert" << endl;
+
     // Check that datatype is acceptable
-    if (!is_acceptable_identifier(row->at("table_name").s))
+    if (!is_acceptable_identifier(row->at("table_name").s)){
+        cout << "in first case"<<endl;
         throw DbRelationError("unacceptable table name '" + row->at("table_name").s + "'");
-    if (!is_acceptable_identifier(row->at("column_name").s))
+    }if (!is_acceptable_identifier(row->at("column_name").s)){
+        cout << "in second case"<<endl;
         throw DbRelationError("unacceptable column name '" + row->at("column_name").s + "'");
-    if (!is_acceptable_data_type(row->at("data_type").s))
+    }if (!is_acceptable_data_type(row->at("data_type").s)){
+        cout << "In 3rd case"<<endl;
         throw DbRelationError("unacceptable data type '" + row->at("data_type").s + "'");
+    }
 
     // Try SELECT * FROM _columns WHERE table_name = row["table_name"] AND column_name = column_name["column_name"]
     // and it should return nothing

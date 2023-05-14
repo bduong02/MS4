@@ -13,8 +13,9 @@ using namespace hsql;
 // extern DbEnv *_DB_ENV;
 
 namespace MS3Tests {
-    void createTest(){
-        // CreateStatement* stmt = SQLParser::parseSQLString("CREATE TABLE z (x int, y string)")
-        // SQLExec::create(stmt);
+    bool tests(){        
+        // CreateStatement* stmt = SQLParser::parseSQLString("CREATE TABLE z (x int, y text)")
+        // SQLExec::execute(stmt);
+        return true;
     }
 }
