@@ -16,8 +16,7 @@
 using namespace std;
 using namespace hsql;
 
-const string TABLE_NAME = "table_name";
-
+const string SUCCESS_MESSAGE = "success"; // message for a successful QueryResult
 
 // define static data
 Tables *SQLExec::tables = nullptr;
@@ -387,7 +386,7 @@ QueryResult *SQLExec::show_tables() {
         rows = tables->project(handle); // execute "SELECT *" to get the row from "tables" as a ValueDict
 
         // print all table names except the 3 schema tables
-        if((*rows)["table_name"].s != TABLE_NAME 
+        if((*rows)["table_name"].s != Tables::TABLE_NAME 
             && (*rows)["table_name"].s != Columns::TABLE_NAME 
             && (*rows)["table_name"].s != Indices::TABLE_NAME){
                 cout << (*rows)["table_name"].s << endl;
@@ -468,23 +467,43 @@ QueryResult *SQLExec::drop_index(const DropStatement *statement) {
         return new QueryResult("Error: attempted to call drop_index() on a non-index entity");
     }
 
-// •	Call get_index to get a reference to the index and then invoke the drop method on it.
-    // Assume statement->name is the table name; I can't tell if it is.
+    // Call get_index to get a reference to the index and then call drop() on it. statement->name is the table name
     indices->get_index(statement->name, statement->indexName).drop();
 
-    // query the indices table so we can know which table this index belongs to
-    // ColumnNames colNamesForIndicesTable;
-    // bool isHash, isUnique; 
-    // ValueDict* where = new ValueDict();
-    // (*where)["index_name"] = statement->indexName;
-    // indices->select(where);
+    // find the rows in _indices for this index
+    ValueDict* where; // where condition: index_name = the index being dropped
+    (*where)["index_name"] = Value(statement->indexName);
+    Handles* indexRowHandles = indices->select(where);
 
-    // assume there is only one 
+    delete where;
+    where = nullptr;
 
-    // for(ColumnName col : colNamesForIndicesTable){
+    // delete each row from _indices for this index
+    for(Handle handle : *indexRowHandles){
+        indices->del(handle);
+    }
 
-    // }
-        return new QueryResult("not implemented");
+    delete indexRowHandles;
 
+    // column names and attributes of _indices for the QueryResult
+    ColumnNames colNames = {"table_name", "index_name", "seq_in_index", "column_name", "index_type", "is_unique"};
+    ColumnAttributes colAttributes;
+
+    for(int i=0; i < colNames.size(); i++) // for each column name, add a column attribute w/ the right data type to colAttributes
+        colAttributes.push_back(ColumnAttribute(ColumnAttribute::DataType::TEXT));
+    colAttributes.push_back(ColumnAttribute(ColumnAttribute::DataType::BOOLEAN));
+
+    ValueDicts* rowsInIndices; // vector of all the rows in the _indices table
+
+    indexRowHandles = indices->select(); // get handles to all the rows in _indices
+
+    // get a ValueDict that stores all the columns in each row in _indices; add that to rowsInIndices
+    for(Handle handle : *indexRowHandles)
+        rowsInIndices->push_back( *(indices->project(handle)) );
+    
+    delete indexRowHandles;
+    indexRowHandles = nullptr;
+
+    return new QueryResult(&colNames, &colAttributes, rowsInIndices, SUCCESS_MESSAGE);
 }
 
