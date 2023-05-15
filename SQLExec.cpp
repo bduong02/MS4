@@ -8,10 +8,7 @@
  */
 #include "SQLExec.h"
 #include "schema_tables.h"
-#include "schema_tables.cpp"
 #include "ParseTreeToString.h"
-#include "ParseTreeToString.cpp"
-
 
 using namespace std;
 using namespace hsql;
@@ -69,7 +66,6 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
         tables = new Tables();
     if(columns == nullptr) // lines 63-64 were taken from Canvas
         columns = new Columns();
-
 
     cout << "done initializing tables"<<endl;
 
@@ -188,9 +184,6 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
             seqInIndex++;
         }
         
-
-
-
     }else if(statement->type == CreateStatement::CreateType::kTable){
         cout << endl << "In create table"<<endl;
         Identifier columnName; // stores name of each column
@@ -287,37 +280,111 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
 
 // DROP ...
 QueryResult *SQLExec::drop(const DropStatement *statement) {
-    return new QueryResult("not implemented"); // FIXME
+    switch (statement->type) {
+        case DropStatement::kTable:
+            return drop_table(statement);
+        case DropStatement::kIndex:
+            return drop_index(statement);
+        default:
+            return new QueryResult("Only DROP TABLE and CREATE INDEX are implemented");
+    }
 }
 
 QueryResult *SQLExec::show(const ShowStatement *statement) {
-    return new QueryResult("not implemented"); // FIXME
+    switch (statement->type) {
+        case ShowStatement::kTables:
+            return show_tables();
+        case ShowStatement::kColumns:
+            return show_columns(statement);
+        case ShowStatement::kIndex:
+            return show_index(statement);
+        default:
+            throw SQLExecError("unrecognized SHOW type");
+    }
 }
 
 QueryResult *SQLExec::show_tables() {
-    Handles* handles = tables->select(); // get handles to all the rows from "tables"
-    ValueDict* rows; 
-    for(Handle handle : *handles){
-        // Each handle is a pair of (BlockID, RecordID)
-        rows = tables->project(handle); // execute "SELECT *" to get the row from "tables" as a ValueDict
-        // Assume "table_name" is the key
-        cout << (*rows)["table_name"].n << endl;
-        cout << (*rows)["table_name"].s << endl;
-        
-    }
+    ColumnNames *column_names = new ColumnNames;
+    column_names->push_back("table_name");
 
-    return new QueryResult("not implemented"); // FIXME
+    ColumnAttributes *column_attributes = new ColumnAttributes;
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+    Handles *handles = SQLExec::tables->select();
+    u_long n = handles->size() - 3;
+
+    ValueDicts *rows = new ValueDicts;
+    for (auto const &handle: *handles) {
+        ValueDict *row = SQLExec::tables->project(handle, column_names);
+        Identifier table_name = row->at("table_name").s;
+        if (table_name != Tables::TABLE_NAME && table_name != Columns::TABLE_NAME && table_name != Indices::TABLE_NAME)
+            rows->push_back(row);
+        else
+            delete row;
+    }
+    delete handles;
+    return new QueryResult(column_names, column_attributes, rows, "successfully returned " + to_string(n) + " rows");
 }
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
-    return new QueryResult("not implemented"); // FIXME
+    DbRelation &columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+
+    ColumnNames *column_names = new ColumnNames;
+    column_names->push_back("table_name");
+    column_names->push_back("column_name");
+    column_names->push_back("data_type");
+
+    ColumnAttributes *column_attributes = new ColumnAttributes;
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+    ValueDict where;
+    where["table_name"] = Value(statement->tableName);
+    Handles *handles = columns.select(&where);
+    u_long n = handles->size();
+
+    ValueDicts *rows = new ValueDicts;
+    for (auto const &handle: *handles) {
+        ValueDict *row = columns.project(handle, column_names);
+        rows->push_back(row);
+    }
+    delete handles;
+    return new QueryResult(column_names, column_attributes, rows, "successfully returned " + to_string(n) + " rows");
 }
+
 
 QueryResult *SQLExec::show_index(const ShowStatement *statement) {
-     return new QueryResult("show index not implemented"); // FIXME
-}
+    ColumnNames *column_names = new ColumnNames;
+    ColumnAttributes *column_attributes = new ColumnAttributes;
+    column_names->push_back("table_name");
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
 
-QueryResult *SQLExec::drop_index(const DropStatement *statement) {
-    return new QueryResult("drop index not implemented");  // FIXME
+    column_names->push_back("index_name");
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+    column_names->push_back("column_name");
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+    column_names->push_back("seq_in_index");
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::INT));
+
+    column_names->push_back("index_type");
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+    column_names->push_back("is_unique");
+    column_attributes->push_back(ColumnAttribute(ColumnAttribute::BOOLEAN));
+
+    ValueDict where;
+    where["table_name"] = Value(string(statement->tableName));
+    Handles *handles = SQLExec::indices->select(&where);
+    u_long n = handles->size();
+
+    ValueDicts *rows = new ValueDicts;
+    for (auto const &handle: *handles) {
+        ValueDict *row = SQLExec::indices->project(handle, column_names);
+        rows->push_back(row);
+    }
+    delete handles;
+    return new QueryResult(column_names, column_attributes, rows,
+                           "successfully returned " + to_string(n) + " rows");
 }
 
