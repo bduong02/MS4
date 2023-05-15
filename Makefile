@@ -3,6 +3,11 @@
 # CPSC4300, Spring 2023
 # Team: Butterfly
 
+# Makefile. 
+# Authors: Ishan Parikh, Kevin, 
+# CPSC4300, Spring 2023
+# Team: Butterfly
+
 EXECUTABLE_FILE = sql4300
 
 all: Shell
