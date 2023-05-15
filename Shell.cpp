@@ -91,10 +91,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Milestone 3 tests
-    // if(MS3Tests::tests()){
-    //     cout << "MS 3 tests passed" << endl;
-    // }else
-    //     cout << "MS3 tests failed" << endl;
+    if(MS3Tests::tests()){
+        cout << "MS 3 tests passed" << endl;
+    }else
+        cout << "MS3 tests failed" << endl;
 
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";

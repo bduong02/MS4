@@ -79,7 +79,7 @@ void SQLExec::initialize_schema_tables() {
 
 QueryResult *SQLExec::execute(const SQLStatement *statement) {
     cout << "Init tables"<<endl;
-    
+
     if(tables == nullptr){
         tables = new Tables();
         tables->create_if_not_exists();
@@ -154,7 +154,6 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         // TODO: check if the table exists
         // DbRelation table = Tables::get_table(statement->tableName);
         
-
         // get the columns of the table to check if the index column exists
         ColumnAttributes columnAttributes = ColumnAttributes();
         ColumnNames tableColumnNames = ColumnNames();
@@ -332,51 +331,109 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
 // SELECT table_name FROM _tables WHERE table_name NOT IN ("_tables", "_columns");
 
 QueryResult *SQLExec::show(const ShowStatement *statement) {
+    if(statement->type == ShowStatement::EntityType::kTables){
+        show_tables();
+    }
+
     // get all the columns in _tables
-    ColumnNames columnNames;
-    ColumnAttributes columnAttributes;
-    tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
+    // ColumnNames columnNames;
+    // ColumnAttributes columnAttributes;
+    // tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
 
-    // remove "_tables" and "_columns" from the list of columns in _tables
-    ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+    // // remove "_tables" and "_columns" from the list of columns in _tables
+    // ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
 
-    // if "_tables" isn't found in the table, there was an error
-    if(it == columnNames.end())
-        return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
+    // // if "_tables" isn't found in the table, there was an error
+    // if(it == columnNames.end())
+    //     return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
 
-    columnNames.erase(it);
+    // columnNames.erase(it);
 
-    it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+    // it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
 
-    // if "_tables" isn't found in the table, there was an error
-    if(it == columnNames.end())
-        return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
+    // // if "_tables" isn't found in the table, there was an error
+    // if(it == columnNames.end())
+    //     return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
 
-    columnNames.erase(it);
+    // columnNames.erase(it);
 
-    cout << "columnNames: ";
-    for(Identifier colName : columnNames) cout << colName << ", " <<endl;
+    // // select all the rows from _tables except _columns and _tables
+    // Handles* allRows = tables->select();
+    // ValueDict valueDict;
 
+    // cout << "columnNames: ";
+    // for(Identifier colName : columnNames) cout << colName << ", " <<endl;
 
-    // tables->project()
+    // cout << endl << "------------------ show tables ---------------------";
+    // for each row in _tables, get the value in that row using project()
+    // for(Handle handle : *allRows){
+    //     valueDict = tables->project(handle);
 
-    // // I need a row handle to _tables for project()
-    // tables->project()
+    //     if(valueDict["table_name"] != TABLE_NAME 
+    //         && valueDict["table_name"] != Columns::TABLE_NAME 
+    //         && valueDict["table_name"] != Indices::TABLE_NAME)
+    //             cout << valueDict["table_name"].s << endl;
+    // }
 
     return new QueryResult("not implemented"); // FIXME
 }
 
 QueryResult *SQLExec::show_tables() {
     Handles* handles = tables->select(); // get handles to all the rows from "tables"
-    ValueDict* rows; 
+
+    ValueDict* rows; // all rows in _tables
     for(Handle handle : *handles){
         // Each handle is a pair of (BlockID, RecordID)
         rows = tables->project(handle); // execute "SELECT *" to get the row from "tables" as a ValueDict
-        // Assume "table_name" is the key
-        cout << (*rows)["table_name"].n << endl;
-        cout << (*rows)["table_name"].s << endl;
-        
+
+        // print all table names except the 3 schema tables
+        if((*rows)["table_name"].s != TABLE_NAME 
+            && (*rows)["table_name"].s != Columns::TABLE_NAME 
+            && (*rows)["table_name"].s != Indices::TABLE_NAME){
+                cout << (*rows)["table_name"].s << endl;
+            }
     }
+
+    // ColumnNames columnNames; // all column names in _tables
+    // ColumnAttributes columnAttributes; //  data types of the columns in _tables
+    // ValueDict tablesToSelect; // which tables to print for the SHOW TABLES query (all but the schema tables)
+    // tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
+
+    // // remove "_tables" and "_columns" from the list of columns in _tables
+    // ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+
+    // // if "_tables" isn't found in the table, there was an error
+    // if(it == columnNames.end())
+    //     return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
+
+    // columnNames.erase(it);
+
+    // it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+
+    // // if "_tables" isn't found in the table, there was an error
+    // if(it == columnNames.end())
+    //     return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
+
+    // columnNames.erase(it);
+
+    // // select all the rows from _tables except _columns and _tables
+    // Handles* allRows = tables->select();
+    // ValueDict valueDict;
+
+    // cout << "columnNames: ";
+    // for(Identifier colName : columnNames) cout << colName << ", " <<endl;
+
+    // cout << endl << "------------------ show tables ---------------------";
+    // // for each row in _tables, get the value in that row using project()
+    // for(Handle handle : *allRows){
+    //     valueDict = tables->project(handle);
+
+    //     if(valueDict["table_name"] != TABLE_NAME 
+    //         && valueDict["table_name"] != Columns::TABLE_NAME 
+    //         && valueDict["table_name"] != Indices::TABLE_NAME)
+    //             cout << valueDict["table_name"].s << endl;
+    // }
+
 
     return new QueryResult("not implemented"); // FIXME
 }
@@ -385,8 +442,21 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
     return new QueryResult("not implemented"); // FIXME
 }
 
+// Showing index:
+// •	Do a query (using the select method) on _indices for the given table name.
 QueryResult *SQLExec::show_index(const ShowStatement *statement) {
-     return new QueryResult("show index not implemented"); // FIXME
+    ValueDict where; // to query indices for the table name
+    // ValueDict rows; // the rows returned from project()
+    where["table_name"] = Value(statement->tableName);
+    Handles* handles = indices->select(&where);
+
+    cout << "---------------------- show index -----------------------------"<<endl;
+
+    // There is only one handle returned since the table names are unique, so we can use handles[0]
+    ValueDict* rows = indices->project((*handles)[0]); // the rows returned from project(). get the attribute values from the handle
+    cout << (*rows)["table_name"].s << endl;
+    
+    return new QueryResult(); // TODO: update this
 }
 
 // Dropping an index:
@@ -400,8 +470,7 @@ QueryResult *SQLExec::drop_index(const DropStatement *statement) {
 
 // •	Call get_index to get a reference to the index and then invoke the drop method on it.
     // Assume statement->name is the table name; I can't tell if it is.
-    // auto indexTable = indices->get_index(statement->name, statement->indexName);
-    // indexTable.drop();
+    indices->get_index(statement->name, statement->indexName).drop();
 
     // query the indices table so we can know which table this index belongs to
     // ColumnNames colNamesForIndicesTable;
