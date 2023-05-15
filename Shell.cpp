@@ -14,7 +14,7 @@
 #include "schema_tables.h"
 #include "heap_storage.h"
 #include "ms2Tests.cpp"
-#include "ms3Tests.cpp"
+#include "ms4Tests.cpp"
 
 using namespace std;
 using namespace hsql;
@@ -90,11 +90,11 @@ int main(int argc, char* argv[]) {
         cout << "Heap Tests passed! Moving on to shell...." << endl << endl;
     }
 
-    // Milestone 3 tests
-    if(MS3Tests::tests()){
-        cout << "MS 3 tests passed" << endl;
+    // Milestone 4 tests
+    if(MS4Tests::tests() == true){
+        cout << "MS 4 tests passed" << endl;
     }else
-        cout << "MS3 tests failed" << endl;
+        cout << "MS4 tests failed" << endl;
 
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";

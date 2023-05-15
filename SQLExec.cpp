@@ -120,7 +120,6 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
      * @param column_name        returned by reference
      * @param column_attributes  returned by reference
      */
-// column attributes are data types
 void
 SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name, ColumnAttribute &column_attribute) {
     // convert column definition data type to ColumnAttribute data type, since their enums are different
@@ -128,11 +127,39 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
         column_attribute = ColumnAttribute(ColumnAttribute::DataType::TEXT);
     }else if(col->type == ColumnDefinition::DataType::INT){
         column_attribute = ColumnAttribute(ColumnAttribute::DataType::INT);
-    }else{ // for now, we're only handling int and text
-        throw SQLExecError("Invalid data type: needs to be int or text");
+    }else if(col->type == ColumnDefinition::DataType::UNKNOWN) // Assume the "UNKNOWN" type is always boolean, since there's no boolean in ColumnDefinition::DataType
+        column_attribute = ColumnAttribute(ColumnAttribute::DataType::BOOLEAN);
+    else{
+        throw SQLExecError("Invalid data type: needs to be int, text, or boolean");
     }
     column_name = Identifier(col->name);
-    // throw SQLExecError("not implemented");  // FIXME
+}
+
+// returns a QueryResult for a table, including all of the table's rows, column names, column attributes,
+// and a message indicating success
+// tableName: the name of the table for which to get the information
+QueryResult* SQLExec::getSuccessfulQueryResult(Identifier tableName){
+    ColumnNames colNames;
+    ColumnAttributes colAttributes;
+
+    // get the HeapTable object for this table name
+    DbRelation* table = &(tables->get_table(tableName));
+
+    // get the column names and attributes of that table
+    tables->get_columns(tableName, colNames, colAttributes);
+
+    // get all rows in _tables for the QueryResult
+    Handles* handles = table->select(); // get handles to each row (SELECT * FROM tableName)
+    ValueDicts* rows;
+
+    // get all the columns as a ValueDict for each row; add it to the list of ValueDicts
+    for(Handle handle : *handles)
+        rows->push_back(*(table->project(handle))); 
+
+    delete handles;
+    handles = nullptr;
+
+    return new QueryResult(&colNames, &colAttributes, rows, SUCCESS_MESSAGE);
 }
 
 // Creating a new index:
@@ -148,6 +175,9 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
 // Dropping a table:
 // •	Before dropping the table, drop each index on the table.
 
+// CREATE TABLE:
+// Adding a table requires checking the constraints and then adding 
+// the table name to the _tables table and adding the columns to the _columns table.
 QueryResult *SQLExec::create(const CreateStatement *statement) {
     if(statement->type == CreateStatement::CreateType::kIndex){
         // TODO: check if the table exists
@@ -227,103 +257,112 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         // Call get_index to get a reference to the new index and then invoke the create method on it.
         indices->get_index(Identifier(statement->tableName), Identifier(statement->indexName)).create();
     }else if(statement->type == CreateStatement::CreateType::kTable){
-        cout << endl << "In create table"<<endl;
-        Identifier columnName; // stores name of each column
-        ColumnAttribute columnAttribute = ColumnAttribute(ColumnAttribute::DataType::INT); // data type of each column: use int as a placeholder since I need an argument for the constructor
-        ColumnNames columnNames; // list of all column names
-        ColumnAttributes columnAttributes; // list of all column data types
-        bool allDigits = false; // checks if the column name is all digits
-        bool acceptableColName = true;
+        // check if the table name is acceptable
+        if(!is_acceptable_identifier(statement->tableName)){
+            cout << "Error: Table name not an acceptable identifier" << endl << endl;
+            return new QueryResult("Error: Table name not an acceptable identifier");
+        }
 
-        // check if the table name is a reserved word
-        if(ParseTreeToString::is_reserved_word(statement->tableName))
-            return new QueryResult("table name is a reserved word");
-        
-        // check constraints
+        Identifier columnName; // stores name of each column
+        ColumnAttribute columnAttribute = ColumnAttribute(ColumnAttribute::DataType::INT); // data type of each column: use int as a placeholder since I need an argument for the constructor 
+        ColumnNames newTableColNames; // list of all column names for the new table
+        ColumnAttributes newTableColAttributes; // list of all column attributes for the new table
+
+        // check if the column names and data types are acceptable
         for(ColumnDefinition* column : *(statement->columns)){
             column_definition(column, columnName, columnAttribute); // get name and data type
 
-            // check if the column name is all digits
-            for(char c : columnName){
-                if(!isdigit(c))
-                    allDigits = false;
+            if(!is_acceptable_identifier(columnName)){
+                cout << "Error: Column name " << columnName << " is not an acceptable identifier" << endl << endl;
+                return new QueryResult("Error: Column name " + columnName + " not an acceptable identifier");
             }
-            if(allDigits){
-                cout << "The column name cannot be all digits" << endl;
-                return new QueryResult("The column name cannot be all digits");
-            }
-
-            // checks if the column name is acceptable (all letters, digits, $, or _)
-            for(char c : columnName){
-                if(!isalnum(c) && c != '$' && c != '_')
-                    acceptableColName = false;
-            }
-            if(!acceptableColName){
-                cout << "The column name has unacceptable characters" << endl;
-                return new QueryResult("Unacceptable column name");
+            if(columnAttribute.get_data_type() != ColumnAttribute::TEXT &&
+                columnAttribute.get_data_type() != ColumnAttribute::INT &&
+                columnAttribute.get_data_type() != ColumnAttribute::BOOLEAN){
+                cout << "Error: Invalid data type for column " << columnName << endl << endl;
+                return new QueryResult("Error: Invalid data type for column " + columnName);
             }
 
-            if(ParseTreeToString::is_reserved_word(columnName)){
-                return new QueryResult("col name is a reserved word");
-            }
-
-            // check if the data type is valid (int or text)
-            if(columnAttribute.get_data_type() != ColumnAttribute::DataType::INT 
-                && columnAttribute.get_data_type() != ColumnAttribute::DataType::TEXT){
-                cout << "Invalid data type: " << columnAttribute.get_data_type() << endl;
-                return new QueryResult("Invalid data type");
-            }
-            
-            columnAttributes.push_back(columnAttribute);
-            columnNames.push_back(columnName);
+            // if the column is valid, add the column name and attribute to the vectors
+            newTableColAttributes.push_back(columnAttribute);
+            newTableColNames.push_back(columnName);
         }
-
+  
         // add the table name to tables
-        ValueDict* tableRow = new ValueDict();
-
+        ValueDict* tableRow = new ValueDict(); // row to add to _tables
         (*tableRow)["table_name"] = Value(statement->tableName);
+
         cout << "printing table row: ";
+        for(auto i : (*tableRow)) cout << i.first << ", " << (i.second).s << endl;
 
-        for(auto i : (*tableRow))
-                cout << i.first << ", " << (i.second).s << endl;
-
-        // tables->insert(tableRow); // seg fault here
+        tables->insert(tableRow);
 
         // add the column names and types to Columns
-        ValueDict* columnsRow = new ValueDict(); // row to add to the Columns table
+        ValueDict* columnsRow = new ValueDict(); // row to add to _columns
         (*columnsRow)["table_name"] = Value(statement->tableName);
 
         // for each column, add a row to the Columns table
-        for(int i=0; i < columnNames.size(); i++){
-            (*columnsRow)["column_name"] = Value(columnNames[i]);
+        for(int i=0; i < newTableColNames.size(); i++){
+            (*columnsRow)["column_name"] = Value(newTableColNames[i]);
 
-            if(columnAttributes[i].get_data_type() == ColumnAttribute::DataType::INT)
+            if(newTableColAttributes[i].get_data_type() == ColumnAttribute::DataType::INT)
                 (*columnsRow)["data_type"] = Value("INT");
-            else
+            else if(newTableColAttributes[i].get_data_type() == ColumnAttribute::DataType::TEXT)
                 (*columnsRow)["data_type"] = Value("TEXT");
+            else if(newTableColAttributes[i].get_data_type() == ColumnAttribute::DataType::BOOLEAN)
+                (*columnsRow)["data_type"] = Value("BOOLEAN");
                 
-            for(auto pairr : (*columnsRow))
-                cout << pairr.first << ", " << pairr.second.s << endl;
+            for(auto pairr : (*columnsRow)) cout << pairr.first << ", " << pairr.second.s << endl;
 
             cout << "in sqlexec::create, about to call Columns::insert"<<endl;
             columns->insert(columnsRow);
 
             cout << "Returned from columns::insert, back in create"<<endl;
-            (*columnsRow).erase("column_name"); // get rid of the old column name to add a row with the next column name
-            (*columnsRow).erase("data_type"); // get rid of the old datatype to add a row with the next column name
         }
 
-        ValueDicts* v = new ValueDicts(); // empty ValueDicts for the QueryResult
-
         cout << "will return" << endl;
-        return new QueryResult(&columnNames, &columnAttributes, v, "");
+
+        // since there are no rows yet in the new table, use an empty ValueDicts for the QueryResult
+        return new QueryResult(&newTableColNames, &newTableColAttributes, new ValueDicts(), SUCCESS_MESSAGE);
     }
-    return new QueryResult();
+
+    return new QueryResult("Invalid create statement type: must be create table or create index");
 }
 
 // DROP ...
+// DROP TABLE
+// This is simple--just remove the table row and the corresponding column rows.
+
 QueryResult *SQLExec::drop(const DropStatement *statement) {
-    return new QueryResult("not implemented"); // FIXME
+    if(statement->type == DropStatement::EntityType::kIndex){
+        return drop_index(statement);
+    }else if(statement->type == DropStatement::EntityType::kTable){
+        // drop the row from _tables
+        ValueDict where; // where condition: table_name == the name of the table in the drop statement
+        where["table_name"] = Value(statement->name);  
+        Handles* tablesHandles = tables->select(&where); // get the handle to the row in _tables.
+
+        if(tablesHandles->empty()){ // if there are no such rows, the table hasn't been created
+            return new QueryResult("Error: the table being dropped doesn't exist");
+        }
+
+        tables->del(tablesHandles->at(0)); // there should be only one handle returned since _tables rows are unique
+        delete tablesHandles;
+
+        // drop the rows from _columns that correspond to each column in the table
+        Handles* columnsHandles = columns->select(&where); // again, need the rows where table_name is equal to the table
+
+        // there can be more than one such row in _columns, so drop them all
+        for(Handle columnsHandle : *columnsHandles)
+            columns->del(columnsHandle);
+        
+        delete columnsHandles;
+        columnsHandles = nullptr;
+
+        return SQLExec().getSuccessfulQueryResult(Tables::TABLE_NAME);
+    }
+
+    return new QueryResult("Invalid drop statement type: must be drop table or drop index");
 }
 
 // Return a table of table names, equivalent to:
@@ -331,110 +370,44 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
 
 QueryResult *SQLExec::show(const ShowStatement *statement) {
     if(statement->type == ShowStatement::EntityType::kTables){
-        show_tables();
+        return show_tables();
+    }else if(statement->type == ShowStatement::EntityType::kIndex){
+        return show_index(statement);
     }
-
-    // get all the columns in _tables
-    // ColumnNames columnNames;
-    // ColumnAttributes columnAttributes;
-    // tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
-
-    // // remove "_tables" and "_columns" from the list of columns in _tables
-    // ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
-
-    // // if "_tables" isn't found in the table, there was an error
-    // if(it == columnNames.end())
-    //     return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
-
-    // columnNames.erase(it);
-
-    // it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
-
-    // // if "_tables" isn't found in the table, there was an error
-    // if(it == columnNames.end())
-    //     return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
-
-    // columnNames.erase(it);
-
-    // // select all the rows from _tables except _columns and _tables
-    // Handles* allRows = tables->select();
-    // ValueDict valueDict;
-
-    // cout << "columnNames: ";
-    // for(Identifier colName : columnNames) cout << colName << ", " <<endl;
-
-    // cout << endl << "------------------ show tables ---------------------";
-    // for each row in _tables, get the value in that row using project()
-    // for(Handle handle : *allRows){
-    //     valueDict = tables->project(handle);
-
-    //     if(valueDict["table_name"] != TABLE_NAME 
-    //         && valueDict["table_name"] != Columns::TABLE_NAME 
-    //         && valueDict["table_name"] != Indices::TABLE_NAME)
-    //             cout << valueDict["table_name"].s << endl;
-    // }
-
     return new QueryResult("not implemented"); // FIXME
 }
 
 QueryResult *SQLExec::show_tables() {
-    Handles* handles = tables->select(); // get handles to all the rows from "tables"
+    Handles* handles = tables->select(); // get handles to all the rows from "_tables"
 
-    ValueDict* rows; // all rows in _tables
+    // if _tables is empty, return an empty QueryResult
+    if(handles->empty()){
+        cout << "No tables" << endl << endl;
+        return new QueryResult();
+    }
+
+    // get all the rows in _tables for the QueryResult
+    ValueDicts* rows; // vector of all rows
     for(Handle handle : *handles){
-        // Each handle is a pair of (BlockID, RecordID)
-        rows = tables->project(handle); // execute "SELECT *" to get the row from "tables" as a ValueDict
+        rows->push_back(*(tables->project(handle))); // for each row handle, get a ValueDict of all the columns in the row
 
-        // print all table names except the 3 schema tables
-        if((*rows)["table_name"].s != Tables::TABLE_NAME 
-            && (*rows)["table_name"].s != Columns::TABLE_NAME 
-            && (*rows)["table_name"].s != Indices::TABLE_NAME){
-                cout << (*rows)["table_name"].s << endl;
+        // if the row that was just added does not contain one of the 3 schema tables, print the row
+        if(rows->back()["table_name"].s != Tables::TABLE_NAME 
+            && rows->back()["table_name"].s != Columns::TABLE_NAME 
+            && rows->back()["table_name"].s != Indices::TABLE_NAME){
+                cout << rows->back()["table_name"].s << endl;
             }
     }
 
-    // ColumnNames columnNames; // all column names in _tables
-    // ColumnAttributes columnAttributes; //  data types of the columns in _tables
-    // ValueDict tablesToSelect; // which tables to print for the SHOW TABLES query (all but the schema tables)
-    // tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
+    delete handles; 
+    handles = nullptr;
 
-    // // remove "_tables" and "_columns" from the list of columns in _tables
-    // ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+    // get the column names and column attributes of _tables for the QueryResult
+    ColumnNames tablesColNames;
+    ColumnAttributes tablesColAttributes;
+    tables->get_columns(Tables::TABLE_NAME, tablesColNames, tablesColAttributes);
 
-    // // if "_tables" isn't found in the table, there was an error
-    // if(it == columnNames.end())
-    //     return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
-
-    // columnNames.erase(it);
-
-    // it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
-
-    // // if "_tables" isn't found in the table, there was an error
-    // if(it == columnNames.end())
-    //     return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
-
-    // columnNames.erase(it);
-
-    // // select all the rows from _tables except _columns and _tables
-    // Handles* allRows = tables->select();
-    // ValueDict valueDict;
-
-    // cout << "columnNames: ";
-    // for(Identifier colName : columnNames) cout << colName << ", " <<endl;
-
-    // cout << endl << "------------------ show tables ---------------------";
-    // // for each row in _tables, get the value in that row using project()
-    // for(Handle handle : *allRows){
-    //     valueDict = tables->project(handle);
-
-    //     if(valueDict["table_name"] != TABLE_NAME 
-    //         && valueDict["table_name"] != Columns::TABLE_NAME 
-    //         && valueDict["table_name"] != Indices::TABLE_NAME)
-    //             cout << valueDict["table_name"].s << endl;
-    // }
-
-
-    return new QueryResult("not implemented"); // FIXME
+    return new QueryResult(&tablesColNames, &tablesColAttributes, rows, SUCCESS_MESSAGE); // FIXME
 }
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
@@ -484,26 +457,136 @@ QueryResult *SQLExec::drop_index(const DropStatement *statement) {
     }
 
     delete indexRowHandles;
-
-    // column names and attributes of _indices for the QueryResult
-    ColumnNames colNames = {"table_name", "index_name", "seq_in_index", "column_name", "index_type", "is_unique"};
-    ColumnAttributes colAttributes;
-
-    for(int i=0; i < colNames.size(); i++) // for each column name, add a column attribute w/ the right data type to colAttributes
-        colAttributes.push_back(ColumnAttribute(ColumnAttribute::DataType::TEXT));
-    colAttributes.push_back(ColumnAttribute(ColumnAttribute::DataType::BOOLEAN));
-
-    ValueDicts* rowsInIndices; // vector of all the rows in the _indices table
-
-    indexRowHandles = indices->select(); // get handles to all the rows in _indices
-
-    // get a ValueDict that stores all the columns in each row in _indices; add that to rowsInIndices
-    for(Handle handle : *indexRowHandles)
-        rowsInIndices->push_back( *(indices->project(handle)) );
-    
-    delete indexRowHandles;
     indexRowHandles = nullptr;
 
-    return new QueryResult(&colNames, &colAttributes, rowsInIndices, SUCCESS_MESSAGE);
+    return SQLExec().getSuccessfulQueryResult(Indices::TABLE_NAME);
 }
 
+// EXTRA CODE
+ // column names and attributes of _indices for the QueryResult
+    // ColumnNames colNames = {"table_name", "index_name", "seq_in_index", "column_name", "index_type", "is_unique"};
+    // ColumnAttributes colAttributes;
+
+    // for(int i=0; i < colNames.size(); i++) // for each column name, add a column attribute w/ the right data type to colAttributes
+    //     colAttributes.push_back(ColumnAttribute(ColumnAttribute::DataType::TEXT));
+    // colAttributes.push_back(ColumnAttribute(ColumnAttribute::DataType::BOOLEAN));
+
+    // ValueDicts* rowsInIndices; // vector of all the rows in the _indices table
+
+    // indexRowHandles = indices->select(); // get handles to all the rows in _indices
+
+    // // get a ValueDict that stores all the columns in each row in _indices; add that to rowsInIndices
+    // for(Handle handle : *indexRowHandles)
+    //     rowsInIndices->push_back( *(indices->project(handle)) );
+    
+    // delete indexRowHandles;
+
+    // return new QueryResult(&colNames, &colAttributes, rowsInIndices, SUCCESS_MESSAGE);
+// from Create table:
+      // cout << endl << "In create table"<<endl;
+        
+        // bool allDigits = false; // checks if the column name is all digits
+        // bool acceptableColName = true;
+
+        // // check if the table name is a reserved word
+        // if(ParseTreeToString::is_reserved_word(statement->tableName))
+        //     return new QueryResult("table name is a reserved word");
+        
+        // // check if the column names are acceptable
+        // for(ColumnDefinition* column : *(statement->columns)){
+        //     column_definition(column, columnName, columnAttribute); // get name and data type
+
+        //     // check if the column name is all digits
+        //     for(char c : columnName){
+        //         if(!isdigit(c))
+        //             allDigits = false;
+        //     }
+        //     if(allDigits){
+        //         cout << "The column name cannot be all digits" << endl;
+        //         return new QueryResult("The column name cannot be all digits");
+        //     }
+
+        //     // checks if the column name is acceptable (all letters, digits, $, or _)
+        //     for(char c : columnName){
+        //         if(!isalnum(c) && c != '$' && c != '_')
+        //             acceptableColName = false;
+        //     }
+        //     if(!acceptableColName){
+        //         cout << "The column name has unacceptable characters" << endl;
+        //         return new QueryResult("Unacceptable column name");
+        //     }
+
+        //     if(ParseTreeToString::is_reserved_word(columnName)){
+        //         return new QueryResult("col name is a reserved word");
+        //     }
+
+        //     // check if the data type is valid (int or text)
+        //     if(columnAttribute.get_data_type() != ColumnAttribute::DataType::INT 
+        //         && columnAttribute.get_data_type() != ColumnAttribute::DataType::TEXT
+        //         && columnAttribute.get_data_type() != ColumnAttribute::DataType::BOOLEAN){
+        //         cout << "Invalid data type: " << columnAttribute.get_data_type() << endl;
+        //         return new QueryResult("Invalid data type");
+        //     }
+            
+        //     columnAttributes.push_back(columnAttribute);
+        //     columnNames.push_back(columnName);
+        // }
+
+    // ColumnNames columnNames; // all column names in _tables
+    // ColumnAttributes columnAttributes; //  data types of the columns in _tables
+    // ValueDict tablesToSelect; // which tables to print for the SHOW TABLES query (all but the schema tables)
+    // tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
+
+    // // remove "_tables" and "_columns" from the list of columns in _tables
+    // ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+
+    // // if "_tables" isn't found in the table, there was an error
+    // if(it == columnNames.end())
+    //     return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
+
+    // columnNames.erase(it);
+
+    // it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+
+    // // if "_tables" isn't found in the table, there was an error
+    // if(it == columnNames.end())
+    //     return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
+
+    // columnNames.erase(it);
+
+    // // select all the rows from _tables except _columns and _tables
+    // Handles* allRows = tables->select();
+    // ValueDict valueDict;
+
+    // cout << "columnNames: ";
+    // for(Identifier colName : columnNames) cout << colName << ", " <<endl;
+
+    // cout << endl << "------------------ show tables ---------------------";
+    // // for each row in _tables, get the value in that row using project()
+    // for(Handle handle : *allRows){
+    //     valueDict = tables->project(handle);
+
+    //     if(valueDict["table_name"] != TABLE_NAME 
+    //         && valueDict["table_name"] != Columns::TABLE_NAME 
+    //         && valueDict["table_name"] != Indices::TABLE_NAME)
+    //             cout << valueDict["table_name"].s << endl;
+    // }
+
+    // TODO: write a method to return a successful QueryResult
+        // get the column names and column attributes of _tables for the QueryResult
+        // ColumnNames tablesColNames;
+        // ColumnAttributes tablesColAttributes;
+        // tables->get_columns(Tables::TABLE_NAME, tablesColNames, tablesColAttributes);
+
+        // // get all rows in _tables for the QueryResult
+        // tablesHandles = tables->select();
+        // ValueDicts* rows;
+
+        // for(Handle handle : *tablesHandles)
+        //     rows->push_back(*(tables->project(handle))); // get all the columns as a ValueDict for each row; add it to the list of ValueDicts
+
+        // delete tablesHandles;
+        // tablesHandles = nullptr;
+
+
+        // return new QueryResult(&tablesColNames, &tablesColAttributes, rows, SUCCESS_MESSAGE); // FIXME

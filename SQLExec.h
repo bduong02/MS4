@@ -88,6 +88,11 @@ protected:
 
     static QueryResult *show_index(const hsql::ShowStatement *statement);
 
+    // returns a QueryResult for a table, including all of the table's rows, column names, column attributes,
+    // and a message indicating success
+    // tableName: the name of the table for which to get the information
+    QueryResult* getSuccessfulQueryResult(Identifier tableName);
+
     /**
      * Pull out column name and attributes from AST's column definition clause
      * @param col                AST column definition
