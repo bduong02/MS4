@@ -239,7 +239,7 @@ SlottedPage* HeapFile::get(BlockID blockID) {
 
   //assign data from db using defined key and return 
   //in slotted page format
-  this->db.get(nullptr, &key, &data, 0);
+  this->db.get(0, &key, &data, 0);
   cout << "data:" << data.get_data()<< " data size: " << data.get_size()
        << "Making a new SlottedPage"<<endl;
   SlottedPage* page = new SlottedPage(data, blockID, false);

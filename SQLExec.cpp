@@ -79,25 +79,7 @@ void SQLExec::initialize_schema_tables() {
 
 QueryResult *SQLExec::execute(const SQLStatement *statement) {
     cout << "Init tables"<<endl;
-    // FIXME: initialize _tables table, if not yet present
-    // this->initialize_schema_tables();
-
-    // tables->create_if_not_exists();
-    // tables->close();
-    // // Columns columns;
-    // columns->create_if_not_exists();
-    // columns->close();
-    // // Indices indices;
-    // indices->create_if_not_exists();
-    // indices->close();
-
-    // if(tables == nullptr) // lines 63-64 were taken from Canvas
-    //     tables = new Tables();
-    // if(columns == nullptr) // lines 63-64 were taken from Canvas
-    //     columns = new Columns();
-    // if(indices == nullptr) // lines 63-64 were taken from Canvas
-    //     indices = new Indices();
-
+    
     if(tables == nullptr){
         tables = new Tables();
         tables->create_if_not_exists();
@@ -155,9 +137,9 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
 }
 
 // Creating a new index:
-// •	Get the underlying table. - bugs
-// •	Check that all the index columns exist in the table. - bugs
-// •	Insert a row for each column in index key into _indices. -bugs
+// •	Get the underlying table. - I didn't
+// •	Check that all the index columns exist in the table. - I think it's OK
+// •	Insert a row for each column in index key into _indices. -seg fault with HeapFile.get()
 // •	Call get_index to get a reference to the new index and then invoke the create method on it.
 // Dropping an index:
 // •	Call get_index to get a reference to the index and then invoke the drop method on it.
@@ -169,14 +151,9 @@ SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_name,
 
 QueryResult *SQLExec::create(const CreateStatement *statement) {
     if(statement->type == CreateStatement::CreateType::kIndex){
-        // cout << "in create index " << "Table name: " << statement->tableName << endl
-        //      << "index name: " << statement->indexName
-        //      << " index type: " << statement->indexType << " index columns: ";
-
-        for(char* indexCol : *(statement->indexColumns))
-            cout << indexCol << " ";
+        // TODO: check if the table exists
+        // DbRelation table = Tables::get_table(statement->tableName);
         
-        cout << endl;
 
         // get the columns of the table to check if the index column exists
         ColumnAttributes columnAttributes = ColumnAttributes();
@@ -195,19 +172,19 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         int index; // array index for columnNames and columnAttributes
         
         // Check that all the index columns exist in the table. TODO: finish/test this later
-        // for(char* indexCol : *(statement->indexColumns)){
-        //     found = false;
-        //     index = 0;
+        for(char* indexCol : *(statement->indexColumns)){
+            found = false;
+            index = 0;
 
-        //     while(!found && index < tableColumnNames.size()){
-        //         if(tableColumnNames[index] == indexCol)
-        //             found = true;
-        //     }
-        //     if(!found){
-        //         cout << "Index column " << indexCol << " is not in the table" << endl;
-        //         // return new QueryResult("Error: index column not in the table");
-        //     }
-        // }
+            while(!found && index < tableColumnNames.size()){
+                if(tableColumnNames[index] == indexCol)
+                    found = true;
+            }
+            if(!found){
+                cout << "Index column " << indexCol << " is not in the table" << endl;
+                // return new QueryResult("Error: index column not in the table");
+            }
+        }
 
         // Insert a row for each column in index key into _indices
         int seqInIndex = 1; // to track the order of the columns in a composite index
@@ -249,11 +226,8 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
             seqInIndex++;
         }
         
-        // DbIndex indexTable = Indices::get_index(Identifier(statement->tableName), Identifier(statement->indexName));
-        // Question: How do I call the create method on a table?
-        // string indexTableCreateStmt
-
-
+        // Call get_index to get a reference to the new index and then invoke the create method on it.
+        indices->get_index(Identifier(statement->tableName), Identifier(statement->indexName)).create();
     }else if(statement->type == CreateStatement::CreateType::kTable){
         cout << endl << "In create table"<<endl;
         Identifier columnName; // stores name of each column
@@ -354,7 +328,41 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
     return new QueryResult("not implemented"); // FIXME
 }
 
+// Return a table of table names, equivalent to:
+// SELECT table_name FROM _tables WHERE table_name NOT IN ("_tables", "_columns");
+
 QueryResult *SQLExec::show(const ShowStatement *statement) {
+    // get all the columns in _tables
+    ColumnNames columnNames;
+    ColumnAttributes columnAttributes;
+    tables->get_columns(TABLE_NAME, columnNames, columnAttributes);
+
+    // remove "_tables" and "_columns" from the list of columns in _tables
+    ColumnNames::iterator it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+
+    // if "_tables" isn't found in the table, there was an error
+    if(it == columnNames.end())
+        return new QueryResult("Error: " + TABLE_NAME + " not found in " + TABLE_NAME);
+
+    columnNames.erase(it);
+
+    it = find(columnNames.begin(), columnNames.end(), TABLE_NAME);
+
+    // if "_tables" isn't found in the table, there was an error
+    if(it == columnNames.end())
+        return new QueryResult("Error: " + Columns::TABLE_NAME + " not found in " + TABLE_NAME);
+
+    columnNames.erase(it);
+
+    cout << "columnNames: ";
+    for(Identifier colName : columnNames) cout << colName << ", " <<endl;
+
+
+    // tables->project()
+
+    // // I need a row handle to _tables for project()
+    // tables->project()
+
     return new QueryResult("not implemented"); // FIXME
 }
 
@@ -381,7 +389,33 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
      return new QueryResult("show index not implemented"); // FIXME
 }
 
+// Dropping an index:
+// •	Call get_index to get a reference to the index and then invoke the drop method on it.
+// •	Remove all the rows from _indices for this index.
 QueryResult *SQLExec::drop_index(const DropStatement *statement) {
-    return new QueryResult("drop index not implemented");  // FIXME
+    if(statement->type != DropStatement::EntityType::kIndex){
+        cout << "Error: attempted to call drop_index() on a non-index entity" << endl;
+        return new QueryResult("Error: attempted to call drop_index() on a non-index entity");
+    }
+
+// •	Call get_index to get a reference to the index and then invoke the drop method on it.
+    // Assume statement->name is the table name; I can't tell if it is.
+    // auto indexTable = indices->get_index(statement->name, statement->indexName);
+    // indexTable.drop();
+
+    // query the indices table so we can know which table this index belongs to
+    // ColumnNames colNamesForIndicesTable;
+    // bool isHash, isUnique; 
+    // ValueDict* where = new ValueDict();
+    // (*where)["index_name"] = statement->indexName;
+    // indices->select(where);
+
+    // assume there is only one 
+
+    // for(ColumnName col : colNamesForIndicesTable){
+
+    // }
+        return new QueryResult("not implemented");
+
 }
 

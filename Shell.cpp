@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cstdlib> 
 #include <string>
-#include <filesystem>
+#include <dirent.h>
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "SQLParserResult.h"
@@ -31,6 +31,8 @@ void execute(SQLParserResult* &result);
 string handleSelect(const SelectStatement* statement);
 string handleCreate(const CreateStatement* statement);
 string expressToString(const Expr* expression);
+
+vector<Identifier> tables; // all the tables that have been created
 
 int main(int argc, char* argv[]) {
     if(argc <= 1) {
@@ -89,10 +91,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Milestone 3 tests
-    if(!MS3Tests::tests()){
-        cout << "MS 3 tests failed" << endl;
-    }else
-        cout << "MS3 tests failed" << endl;
+    // if(MS3Tests::tests()){
+    //     cout << "MS 3 tests passed" << endl;
+    // }else
+    //     cout << "MS3 tests failed" << endl;
 
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";
@@ -118,11 +120,16 @@ int main(int argc, char* argv[]) {
     } 
 
     // when done, remove all files in the environment
-    // for (const auto & entry : directory_iterator(envDirPath))
-    //     cout << entry.path(envDirPath) << endl;
-
     db.close(0);
-    // db.remove(0);
+    // db.remove(MILESTONE1, nullptr, 0);
+    // db.remove("_tables.db", nullptr, 0);
+    // db.remove(Columns::TABLE_NAME.c_str(), nullptr, 0);
+    // db.remove(Indices::TABLE_NAME.c_str(), nullptr, 0);
+
+    // for(Identifier tableName : tables){
+    //     db.remove((envDirPath + "/" + tableName + ".d").c_str(), nullptr, 0);
+    // }
+
     environment.close(0);
     environment.remove(envDirPath.c_str(), 0); // this doesn't remove DB files
 
@@ -227,6 +234,13 @@ string handleSelect(const SelectStatement* statement) {
 
 string handleCreate(const CreateStatement* statement) {
     string output = "CREATE TABLE ";
+
+    // add the table or index name to "tables"
+    if(statement->type == CreateStatement::CreateType::kIndex)
+        tables.push_back(statement->indexName);
+    else if(statement->type == CreateStatement::CreateType::kTable)
+        tables.push_back(statement->tableName);
+    
     if (statement->type != CreateStatement::kTable)
         return output + "(placeholder)";
     

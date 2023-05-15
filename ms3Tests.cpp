@@ -16,6 +16,13 @@ namespace MS3Tests {
     bool tests(){        
         // CreateStatement* stmt = SQLParser::parseSQLString("CREATE TABLE z (x int, y text)")
         // SQLExec::execute(stmt);
+        cout << "in test"<<endl;
+        const ShowStatement* stmt = new ShowStatement(ShowStatement::EntityType::kTables); // SHOW TABLES
+
+        cout << "declared Showstmt"<<endl;
+        SQLExec::execute(stmt);
+
+        cout << "Executed showStmt" << endl;
         return true;
     }
 }
