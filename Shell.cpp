@@ -40,19 +40,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    
-    cout << endl << endl << "C++ version"<<endl<<endl;
-    if (__cplusplus == 201703L)
-        std::cout << "C++17" << endl;
-    else if (__cplusplus == 201402L)
-        std::cout << "C++14" << endl;
-    else if (__cplusplus == 201103L)
-        std::cout << "C++11" << endl;
-    else if (__cplusplus == 199711L)
-        std::cout << "C++98" << endl;
-    else
-        std::cout << "pre-standard C++" << endl;
-
     string envDirPath = argv[1];
     
     //init db environment locally and globally
@@ -66,14 +53,12 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // lines 52-57 added by David from Haley and David's code: open the DB
     Db db(&environment, 0);
 	db.set_message_stream(environment.get_message_stream());
 	db.set_error_stream(environment.get_error_stream());
 	db.set_re_len(BLOCK_SZ);
 	int id = db.open(NULL, MILESTONE1, NULL, DB_RECNO, DB_CREATE | DB_TRUNCATE, 0644);
     if(id == 0) cout << "In main, opened successfully" << endl;
-
 
     _DB_ENV = &environment;
 
@@ -130,8 +115,9 @@ int main(int argc, char* argv[]) {
     //     db.remove((envDirPath + "/" + tableName + ".d").c_str(), nullptr, 0);
     // }
 
+    // close schema tables and environment
     environment.close(0);
-    environment.remove(envDirPath.c_str(), 0); // this doesn't remove DB files
+    // environment.remove(envDirPath.c_str(), 0); // this doesn't remove DB files
 
 
     return 0;

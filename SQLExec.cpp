@@ -56,8 +56,14 @@ ostream &operator<<(ostream &out, const QueryResult &qres) {
 }
 
 QueryResult::~QueryResult() {
-    // FIXME
+    delete column_names;
+    column_names = nullptr;
+    delete column_attributes;
+    column_attributes = nullptr;
+    delete rows;
+    rows = nullptr;
 }
+
 
 void SQLExec::initialize_schema_tables() {
     // if(tables == nullptr){
@@ -163,21 +169,18 @@ QueryResult* SQLExec::getSuccessfulQueryResult(Identifier tableName){
     return new QueryResult(&colNames, &colAttributes, rows, SUCCESS_MESSAGE);
 }
 
-// Creating a new index:
-// •	Get the underlying table. - I didn't
-// •	Check that all the index columns exist in the table. - I think it's OK
-// •	Insert a row for each column in index key into _indices. - done but seg fault with HeapFile.get()
-// •	Call get_index to get a reference to the new index and then invoke the create method on it.
-// Dropping an index:
-// •	Call get_index to get a reference to the index and then invoke the drop method on it.
-// •	Remove all the rows from _indices for this index.
-// Showing index:
-// •	Do a query (using the select method) on _indices for the given table name.
-// Dropping a table:
-// •	Before dropping the table, drop each index on the table.
-
 QueryResult *SQLExec::create(const CreateStatement *statement) {
-    if(statement->type == CreateStatement::CreateType::kIndex){        
+    if(statement->type == CreateStatement::CreateType::kIndex){  
+        // check if the table exists
+        ValueDict where; // where condition: table_name == the name of the table in the create index statement
+        where["table_name"] = Value(statement->tableName);  
+        Handles* tableRowHandles = tables->select(&where); // get the handle to the row in _tables.
+
+        if(tableRowHandles->empty()){
+            cout << "Error: the table doesn't exist" << endl;
+            return new QueryResult("Error: the table doesn't exist");
+        }
+             
         // get the columns of the table to check if the index column exists
         ColumnAttributes columnAttributes = ColumnAttributes();
         ColumnNames tableColumnNames = ColumnNames();
@@ -233,15 +236,25 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         newIndex = nullptr;
 
         // the names and data types of the columns in _indices
-         ColumnNames INDICES_COLUMN_NAMES = {"table_name", "index_name", "seq_in_index", 
+         ColumnNames indicesColNames = {"table_name", "index_name", "seq_in_index", 
                                             "column_name", "index_type", "is_unique"};
-         ColumnAttributes INDICES_COLUMN_DATA_TYPES = {ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::INT), 
+         ColumnAttributes indicesDataTypes = {ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::INT), 
                                                     ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::BOOLEAN)};
 
 
         // since there are no rows yet in the new index, use an empty ValueDicts for the QueryResult
-        return new QueryResult(&(ColumnNames)INDICES_COLUMN_NAMES, &(ColumnAttributes)INDICES_COLUMN_DATA_TYPES, new ValueDicts(), SUCCESS_MESSAGE);
+        return new QueryResult(&indicesColNames, &indicesDataTypes, new ValueDicts(), SUCCESS_MESSAGE);
     }else if(statement->type == CreateStatement::CreateType::kTable){
+        // check if the table exists
+        ValueDict where; // where condition: table_name == the name of the table in the create index statement
+        where["table_name"] = Value(statement->tableName);  
+        Handles* tableRowHandles = tables->select(&where); // get the handle to the row in _tables.
+
+        if(!tableRowHandles->empty()){
+            cout << "Error: table already exists" << endl;
+            return new QueryResult("Error: table already exists");
+        }
+
         // check if the table name is acceptable
         if(!is_acceptable_identifier(statement->tableName)){
             cout << "Error: Table name not an acceptable identifier" << endl << endl;
