@@ -232,17 +232,12 @@ SlottedPage* HeapFile::get_new(void) {
 }
 
 SlottedPage* HeapFile::get(BlockID blockID) {
-    cout << "In heapFile.get. Last block id: " << this->last << endl;
     Dbt key(&blockID, sizeof(blockID)), data;
 
     //assign data from db using defined key and return 
     //in slotted page format
     this->db.get(0, &key, &data, 0);
-    cout << "data:" << data.get_data()<< " data size: " << data.get_size()
-        << "Making a new SlottedPage"<<endl;
     SlottedPage* page = new SlottedPage(data, blockID, false);
-
-    cout << "returning from HeapFile::get"<<endl;
     return new SlottedPage(data, blockID, false);
 }
 
@@ -321,14 +316,10 @@ void HeapTable::close() {
 Handle HeapTable::insert(const ValueDict *row) {
   //open relation define a row, insert it (deleting after) and return
   //h for future operations
-  cout<<"in HeapTable::insert"<<endl;
   this->open();
-  cout <<"opened"<<endl;
   ValueDict* fullRow = this->validate(row);
-  cout << "validated" <<endl;
   Handle h = this->append(fullRow);
   delete fullRow;
-  cout << "returning from heaptable::insert"<<endl;
   return h;
 }
                      
@@ -364,15 +355,10 @@ Dbt* HeapTable::marshal(const ValueDict* row) {
 }  
 
 Handle HeapTable::append(const ValueDict *row) {
-  cout << "\nin append. Last block ID:" << file.get_last_block_id() << endl;
   //marshall row and attempt to insert in current block
   Dbt* data = marshal(row);
-
-  cout << "marshalled"<< endl;
   SlottedPage* block = this->file.get(this->file.get_last_block_id());
   RecordID id;
-  cout << "Is block null? " << (block == nullptr ? "Y":"N")<<endl;
-
 
   try {
     id = block->add(data);
@@ -382,15 +368,11 @@ Handle HeapTable::append(const ValueDict *row) {
     id = block->add(data);
   }
 
-  cout << "about to put file in block"<<endl;
-
   //add block to file, and delete used memory
   this->file.put(block);
-  cout << "put the block in the file"<<endl;
   delete [] (char *) data->get_data();
   delete data;
   delete block;
-  cout <<"returning"<<endl;
   return Handle(this->file.get_last_block_id(), id);
 }
 
@@ -435,32 +417,21 @@ where is {ColumnName : Value, ColumnName2, Value2, ...,}
 Select only the records where data[ColumnName] == Value
 */
 Handles* HeapTable::select(const ValueDict *where) {
-  cout << "in select where" << endl;
   Handles* handles = new Handles();
-
-  cout << "getting blockids"<<endl;
   BlockIDs* block_ids = file.block_ids();
-  cout << "got blockids" << "null? " << (block_ids == nullptr ? "Yes":"No") << endl;
-  if(block_ids != nullptr)
-    cout << "blockids size: " << block_ids->size() <<endl;
 
   if(!block_ids->empty()){
     Identifier whereKey;
     Value whereValue;
     for (auto const& block_id: *block_ids) {
-          cout << "about to call file.get" << endl;
           SlottedPage* block = file.get(block_id);
-          cout << endl << "got file" << endl;
           RecordIDs* record_ids = block->ids();
-          cout << endl << "got ids" << endl;
 
           // for each record, retrieve it to check if it meets the select condition.
           // If it does, add it to handles
           for (auto const& record_id: *record_ids){
               Dbt* record = block->get(record_id); // get a Dbt that holds the record for that record_id
-              cout << "got the record " << "null? " << (record == nullptr? "Yes" : "No");
               ValueDict* unmarshaledRecord = unmarshal(record); // unmarshal the Dbt and turn it into a ValueDict so I can do the select statement
-              cout << "Unmarshaled record:" << "null? " << (record == nullptr? "Yes" : "No") <<endl;
 
               delete record;
               bool selectRecord = true; // whether to include this record in the list of selected records
@@ -495,14 +466,9 @@ Handles* HeapTable::select(const ValueDict *where) {
           delete record_ids;
           delete block;
     }
-  }else{
-    cout << "blockids is empty"<<endl;
   }
 
-  cout << "Size of handles: " << handles->size() << " Is it empty? " << handles->empty() << endl;
-
   delete block_ids;
-  cout << "returning from select where"<<endl;
   return handles;
 }
 

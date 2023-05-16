@@ -51,11 +51,6 @@ namespace MS4Tests{
         createStmt->columns->push_back(new ColumnDefinition((char*)"col3", ColumnDefinition::DataType::INT));
         SQLExec::execute(createStmt);
 
-        for(int i=0; i < createStmt->columns->size(); i++){
-            delete createStmt->columns[i];
-            createStmt->columns[i] = nullptr;
-        }
-
         delete createStmt->columns;
         createStmt->columns = nullptr;
         delete createStmt->tableName;
@@ -63,7 +58,7 @@ namespace MS4Tests{
         createStmt = nullptr;
         
         testShow(ShowStatement::kTables, "");
-        testshow(ShowStatement::kColumns, "foo")
+        testShow(ShowStatement::kColumns, "foo");
 
         cout << "Creating an index on foo on columns (col1, col2)" << endl;
         CreateStatement* createStmt2 = new CreateStatement(CreateStatement::CreateType::kTable);
@@ -99,7 +94,6 @@ namespace MS4Tests{
         delete createStmt4->indexColumns;
         delete createStmt4;
 
-        cout << "Calling show index on foo" << endl;
         testShow(ShowStatement::kIndex, "foo");
 
         cout << "Dropping index1 from foo" << endl;
@@ -110,29 +104,24 @@ namespace MS4Tests{
         delete dropStmt;
 
         cout << "Creating another table, bar" << endl;
-        CreateStatement* createStmt = new CreateStatement(CreateStatement::CreateType::kTable);
-        createStmt->tableName = (char*)"bar";
-        createStmt->columns = new vector<ColumnDefinition*>();
-        createStmt->columns->push_back(new ColumnDefinition((char*)"a", ColumnDefinition::DataType::INT));
-        createStmt->columns->push_back(new ColumnDefinition((char*)"b", ColumnDefinition::DataType::TEXT));
-        createStmt->columns->push_back(new ColumnDefinition((char*)"c", ColumnDefinition::DataType::TEXT));
-        SQLExec::execute(createStmt);
+        CreateStatement* create = new CreateStatement(CreateStatement::CreateType::kTable);
+        create->tableName = (char*)"bar";
+        create->columns = new vector<ColumnDefinition*>();
+        create->columns->push_back(new ColumnDefinition((char*)"a", ColumnDefinition::DataType::INT));
+        create->columns->push_back(new ColumnDefinition((char*)"b", ColumnDefinition::DataType::TEXT));
+        create->columns->push_back(new ColumnDefinition((char*)"c", ColumnDefinition::DataType::TEXT));
+        SQLExec::execute(create);
 
-        for(int i=0; i < createStmt->columns->size(); i++){
-            delete createStmt->columns[i];
-            createStmt->columns[i] = nullptr;
-        }
-
-        delete createStmt->columns;
-        createStmt->columns = nullptr;
-        delete createStmt;
-        createStmt = nullptr;
+        delete create->columns;
+        create->columns = nullptr;
+        delete create;
+        create = nullptr;
 
         testShow(ShowStatement::kColumns, "bar");
         testShow(ShowStatement::kTables, "");
 
         cout << "Dropping table foo" << endl;
-        DropStatement* dropStmt = new DropStatement(DropStatement::EntityType::kTable);
+        dropStmt = new DropStatement(DropStatement::EntityType::kTable);
         dropStmt->name = (char*)"foo";
         SQLExec::execute(dropStmt);
         delete dropStmt->name;
@@ -145,16 +134,14 @@ namespace MS4Tests{
         SQLExec::execute(dropStmt);
         delete dropStmt->name;
         delete dropStmt;
-        dropStmt = nullptr;
 
         cout << "Dropping table bar" << endl;
-        DropStatement* dropStmt = new DropStatement(DropStatement::EntityType::kTable);
+        dropStmt = new DropStatement(DropStatement::EntityType::kTable);
         dropStmt->name = (char*)"bar";
         SQLExec::execute(dropStmt);
         delete dropStmt->name;
         delete dropStmt;
 
-        testShow(ShowStatement::EntityType::kTables)
-        return true;
+        testShow(ShowStatement::EntityType::kTables, "");
     }
 }

@@ -1,8 +1,8 @@
-//Filename: driver.cpp
-//Authors: Ishan Parikh, Bryan Duong
-//Date 4-1-23
-//CPSC 5300
-//Purpose: Milestone 1 Impelementation
+//Filename: Shell.cpp
+//Authors: Ryan Silvera, David Stanko
+//Date 5-15-23
+//CPSC 4300
+//Purpose: Milestone 4 Implementation
 #include <iostream>
 #include <cstdlib> 
 #include <string>
@@ -75,11 +75,7 @@ int main(int argc, char* argv[]) {
         cout << "Heap Tests passed! Moving on to shell...." << endl << endl;
     }
 
-    // Milestone 4 tests
-    if(MS4Tests::tests() == true){
-        cout << "MS 4 tests passed" << endl;
-    }else
-        cout << "MS4 tests failed" << endl;
+    MS4Tests::tests();
 
     //read, parse, & handle sql statements 
     const string EXIT_RESPONSE = "quit";
@@ -104,21 +100,8 @@ int main(int argc, char* argv[]) {
 	    }
     } 
 
-    // when done, remove all files in the environment
     db.close(0);
-    // db.remove(MILESTONE1, nullptr, 0);
-    // db.remove("_tables.db", nullptr, 0);
-    // db.remove(Columns::TABLE_NAME.c_str(), nullptr, 0);
-    // db.remove(Indices::TABLE_NAME.c_str(), nullptr, 0);
-
-    // for(Identifier tableName : tables){
-    //     db.remove((envDirPath + "/" + tableName + ".d").c_str(), nullptr, 0);
-    // }
-
-    // close schema tables and environment
     environment.close(0);
-    // environment.remove(envDirPath.c_str(), 0); // this doesn't remove DB files
-
 
     return 0;
 }
