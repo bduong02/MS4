@@ -18,6 +18,7 @@ using namespace hsql;
 
 const string SUCCESS_MESSAGE = "success"; // message for a successful QueryResult
 
+
 // define static data
 Tables *SQLExec::tables = nullptr;
 Columns *SQLExec::columns = nullptr;
@@ -165,7 +166,7 @@ QueryResult* SQLExec::getSuccessfulQueryResult(Identifier tableName){
 // Creating a new index:
 // •	Get the underlying table. - I didn't
 // •	Check that all the index columns exist in the table. - I think it's OK
-// •	Insert a row for each column in index key into _indices. -seg fault with HeapFile.get()
+// •	Insert a row for each column in index key into _indices. - done but seg fault with HeapFile.get()
 // •	Call get_index to get a reference to the new index and then invoke the create method on it.
 // Dropping an index:
 // •	Call get_index to get a reference to the index and then invoke the drop method on it.
@@ -175,31 +176,17 @@ QueryResult* SQLExec::getSuccessfulQueryResult(Identifier tableName){
 // Dropping a table:
 // •	Before dropping the table, drop each index on the table.
 
-// CREATE TABLE:
-// Adding a table requires checking the constraints and then adding 
-// the table name to the _tables table and adding the columns to the _columns table.
 QueryResult *SQLExec::create(const CreateStatement *statement) {
-    if(statement->type == CreateStatement::CreateType::kIndex){
-        // TODO: check if the table exists
-        // DbRelation table = Tables::get_table(statement->tableName);
-        
+    if(statement->type == CreateStatement::CreateType::kIndex){        
         // get the columns of the table to check if the index column exists
         ColumnAttributes columnAttributes = ColumnAttributes();
         ColumnNames tableColumnNames = ColumnNames();
-        cout <<"calling getColumns from create"<<endl;
-        Tables::get_columns(statement->tableName, tableColumnNames, columnAttributes);
-
-        cout << "tableColumnNames size: "<<tableColumnNames.size() << "columnAttrs size: "
-            <<columnAttributes.size() << endl;
-
-        // cout << "The columns in " << statement->tableName << ": ";
-        // for(int i=0; i < tableColumnNames.size(); i++)
-        //     cout << tableColumnNames.at(i) << " : " << columnAttributes.at(i).get_data_type() << endl;
-        
         bool found; // whether the index columns are columns in the table
         int index; // array index for columnNames and columnAttributes
         
-        // Check that all the index columns exist in the table. TODO: finish/test this later
+        Tables::get_columns(statement->tableName, tableColumnNames, columnAttributes);
+
+        // Check that all the index columns exist in the table
         for(char* indexCol : *(statement->indexColumns)){
             found = false;
             index = 0;
@@ -207,55 +194,53 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
             while(!found && index < tableColumnNames.size()){
                 if(tableColumnNames[index] == indexCol)
                     found = true;
+                index++;
             }
             if(!found){
                 cout << "Index column " << indexCol << " is not in the table" << endl;
-                // return new QueryResult("Error: index column not in the table");
+                return new QueryResult("Error: index column not in the table");
             }
         }
 
         // Insert a row for each column in index key into _indices
         int seqInIndex = 1; // to track the order of the columns in a composite index
-        ValueDict* indicesRow = new ValueDict();
+        ValueDict* indicesRow = new ValueDict(); // row(s) to insert into _indices
 
-        // TODO: check if statement->tableName is null - will the parser do that?
         (*indicesRow)["table_name"] = Value(statement->tableName);
         (*indicesRow)["index_name"] = Value(statement->indexName);
         (*indicesRow)["index_type"] = Value(statement->indexType);
-
-        cout << "added the first 3 cols to indicesRow" <<endl;
 
         if(statement->indexType == "BTREE") 
             (*indicesRow)["is_unique"] = false;
         else 
             (*indicesRow)["is_unique"] = true;
-
-        cout << "added the first 4 cols to indicesRow"<<endl;
         
         // insert a row into _indices for each column in the index 
         for(char* indexCol : *(statement->indexColumns)){
             (*indicesRow)["column_name"] = Value(indexCol);
             (*indicesRow)["seq_in_index"] = Value(seqInIndex);
-
-            cout << endl << endl << "------------------------ indicesRow: -------------------------" << endl;
-            for(auto element : *indicesRow){
-                // change this to account for bool
-                cout << element.first << " ";
-                if(element.second.data_type == ColumnAttribute::DataType::INT) cout << element.second.n << endl;
-                else if(element.second.data_type == ColumnAttribute::DataType::TEXT) cout << element.second.s << endl;
-                else cout << "The data type = bool"<<endl;
-            }
-
-            cout << "Is indices null? " << (indices==nullptr ? "Y":"N")<<endl;
-
-            cout << "about to insert into indices"<<endl;
             indices->insert(indicesRow);
-            cout << "inserted into indices"<<endl;
             seqInIndex++;
         }
-        
-        // Call get_index to get a reference to the new index and then invoke the create method on it.
-        indices->get_index(Identifier(statement->tableName), Identifier(statement->indexName)).create();
+
+        delete indicesRow;
+        indicesRow = nullptr;
+
+        // Call get_index to get a reference to the new index and then invoke the create method on it.       
+        DbIndex* newIndex = &indices->get_index(Identifier(statement->tableName), Identifier(statement->indexName));
+        newIndex->create();
+        delete newIndex;
+        newIndex = nullptr;
+
+        // the names and data types of the columns in _indices
+         ColumnNames INDICES_COLUMN_NAMES = {"table_name", "index_name", "seq_in_index", 
+                                            "column_name", "index_type", "is_unique"};
+         ColumnAttributes INDICES_COLUMN_DATA_TYPES = {ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::INT), 
+                                                    ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::TEXT), ColumnAttribute(ColumnAttribute::BOOLEAN)};
+
+
+        // since there are no rows yet in the new index, use an empty ValueDicts for the QueryResult
+        return new QueryResult(&(ColumnNames)INDICES_COLUMN_NAMES, &(ColumnAttributes)INDICES_COLUMN_DATA_TYPES, new ValueDicts(), SUCCESS_MESSAGE);
     }else if(statement->type == CreateStatement::CreateType::kTable){
         // check if the table name is acceptable
         if(!is_acceptable_identifier(statement->tableName)){
@@ -329,23 +314,35 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     return new QueryResult("Invalid create statement type: must be create table or create index");
 }
 
-// DROP ...
-// DROP TABLE
-// This is simple--just remove the table row and the corresponding column rows.
-
+// We don't need to prioritize dropping the actual HeapTable object.
+// So, besides that, this is done but can't test it.
 QueryResult *SQLExec::drop(const DropStatement *statement) {
     if(statement->type == DropStatement::EntityType::kIndex){
         return drop_index(statement);
     }else if(statement->type == DropStatement::EntityType::kTable){
-        // drop the row from _tables
+        // drop all the indices on this table
         ValueDict where; // where condition: table_name == the name of the table in the drop statement
         where["table_name"] = Value(statement->name);  
-        Handles* tablesHandles = tables->select(&where); // get the handle to the row in _tables.
+        Handles* indexHandles = indices->select(&where); // get the handle to the row in _tables.
+        ValueDict* indicesRow; // stores a row in _indices
 
-        if(tablesHandles->empty()){ // if there are no such rows, the table hasn't been created
-            return new QueryResult("Error: the table being dropped doesn't exist");
+        if(!indexHandles->empty()){ // if there are indices, drop them
+            DropStatement* dropStmt = new DropStatement(DropStatement::EntityType::kIndex); // a drop statement for each index being dropped
+            for(Handle indexHandle : *indexHandles){
+                // get the name of each index, then drop it
+                indicesRow = indices->project(indexHandle);
+                dropStmt->indexName = (char*)((*indicesRow)["index_name"].s).c_str();
+                delete indicesRow;
+                drop_index(dropStmt);
+            }
         }
 
+        // drop the row from _tables        
+        Handles* tablesHandles = tables->select(&where); // get the handle to the row in _tables.
+
+        if(tablesHandles->empty()) // if there are no such rows, the table hasn't been created
+            return new QueryResult("Error: the table being dropped doesn't exist");
+        
         tables->del(tablesHandles->at(0)); // there should be only one handle returned since _tables rows are unique
         delete tablesHandles;
 
@@ -464,9 +461,7 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
                            "successfully returned " + to_string(n) + " rows");
 }
 
-// Dropping an index:
-// •	Call get_index to get a reference to the index and then invoke the drop method on it.
-// •	Remove all the rows from _indices for this index.
+// done but need to test
 QueryResult *SQLExec::drop_index(const DropStatement *statement) {
     if(statement->type != DropStatement::EntityType::kIndex){
         cout << "Error: attempted to call drop_index() on a non-index entity" << endl;
@@ -485,9 +480,8 @@ QueryResult *SQLExec::drop_index(const DropStatement *statement) {
     where = nullptr;
 
     // delete each row from _indices for this index
-    for(Handle handle : *indexRowHandles){
+    for(Handle handle : *indexRowHandles)
         indices->del(handle);
-    }
 
     delete indexRowHandles;
     indexRowHandles = nullptr;
