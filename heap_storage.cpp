@@ -231,21 +231,19 @@ SlottedPage* HeapFile::get_new(void) {
   return new SlottedPage(blockToSlot, blockID, true);
 }
 
-// TODO: the BlockIDs don't reset to 0 when I run the program again.
-// Need to remove the files somehow.
 SlottedPage* HeapFile::get(BlockID blockID) {
-  cout << "In heapFile.get. Last block id: " << this->last << endl;
-  Dbt key(&blockID, sizeof(blockID)), data;
+    cout << "In heapFile.get. Last block id: " << this->last << endl;
+    Dbt key(&blockID, sizeof(blockID)), data;
 
-  //assign data from db using defined key and return 
-  //in slotted page format
-  this->db.get(0, &key, &data, 0);
-  cout << "data:" << data.get_data()<< " data size: " << data.get_size()
-       << "Making a new SlottedPage"<<endl;
-  SlottedPage* page = new SlottedPage(data, blockID, false);
+    //assign data from db using defined key and return 
+    //in slotted page format
+    this->db.get(0, &key, &data, 0);
+    cout << "data:" << data.get_data()<< " data size: " << data.get_size()
+        << "Making a new SlottedPage"<<endl;
+    SlottedPage* page = new SlottedPage(data, blockID, false);
 
-  cout << "returning from HeapFile::get"<<endl;
-  return new SlottedPage(data, blockID, false);
+    cout << "returning from HeapFile::get"<<endl;
+    return new SlottedPage(data, blockID, false);
 }
 
 void HeapFile::put(DbBlock* block) {
@@ -293,8 +291,6 @@ DbRelation(table_name, column_names, column_attributes), file(table_name) {
   //quick intialize with super constructor and init file as such
   //to avoid using the assignment overload operator and causing issues
 }
-
-// TODO: implement HeapTable::select() and/or HeapTable::select() w/ where clause
                      
 void HeapTable::create() {
   this->file.create();
