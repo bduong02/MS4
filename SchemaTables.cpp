@@ -3,7 +3,7 @@
  * @author Kevin Lundeen
  * @see "Seattle University, CPSC5300, Winter 2023"
  */
-#include "schema_tables.h"
+#include "SchemaTables.h"
 #include "ParseTreeToString.h"
 
 
@@ -116,47 +116,35 @@ void Tables::del(Handle handle) {
 
 // Return a list of column names and column attributes for given table.
 void Tables::get_columns(Identifier table_name, ColumnNames &column_names, ColumnAttributes &column_attributes) {
-    cout << "In getColumns"<<endl;
     // SELECT * FROM _columns WHERE table_name = <table_name>
     ValueDict where;
     where["table_name"] = table_name;
-
-    cout << "in get_columns, calling select where"<<endl;
     Handles *handles = Tables::columns_table->select(&where);
-    cout << "returned from select where, back in getColumns"<<endl;
-    cout << "is handles null? " << (handles == nullptr ? "Yes":"No");
-    if(handles != nullptr) cout << "handles size: " << handles->size()<<endl;
 
     ColumnAttribute column_attribute;
+    for (auto const &handle: *handles) {
+        ValueDict *row = Tables::columns_table->project(
+                handle);  // get the row's values: {'column_name': <name>, 'data_type': <type>}
 
-    if(!handles->empty()){ // check for empty added by David
-        for (auto const &handle: *handles) {
-            cout << "in loop" << endl;
-            ValueDict *row = Tables::columns_table->project(
-                    handle);  // get the row's values: {'column_name': <name>, 'data_type': <type>}
+        Identifier column_name = (*row)["column_name"].s;
+        column_names.push_back(column_name);
 
-            cout << "returned from project" << endl;
-            Identifier column_name = (*row)["column_name"].s;
-            column_names.push_back(column_name);
+        ColumnAttribute::DataType data_type;
+        if ((*row)["data_type"].s == "INT")
+            data_type = ColumnAttribute::INT;
+        else if ((*row)["data_type"].s == "TEXT")
+            data_type = ColumnAttribute::TEXT;
+        else if ((*row)["data_type"].s == "BOOLEAN")
+            data_type = ColumnAttribute::BOOLEAN;
+        else
+            throw DbRelationError("Unknown data type");
+        column_attribute.set_data_type(data_type);
 
-            ColumnAttribute::DataType data_type;
-            if ((*row)["data_type"].s == "INT")
-                data_type = ColumnAttribute::INT;
-            else if ((*row)["data_type"].s == "TEXT")
-                data_type = ColumnAttribute::TEXT;
-            else if ((*row)["data_type"].s == "BOOLEAN")
-                data_type = ColumnAttribute::BOOLEAN;
-            else
-                throw DbRelationError("Unknown data type");
-            column_attribute.set_data_type(data_type);
+        column_attributes.push_back(column_attribute);
 
-            column_attributes.push_back(column_attribute);
-
-            delete row;
-        }
+        delete row;
     }
     delete handles;
-    cout << "returning from getColumns"<<endl;
 }
 
 // Return a table for given table_name.
@@ -244,7 +232,6 @@ void Columns::create() {
 
 // Manually check that (table_name, column_name) is unique.
 Handle Columns::insert(const ValueDict *row) {
-    cout << "In Columns::insert"<<endl;
     // Check that datatype is acceptable
     if (!is_acceptable_identifier(row->at("table_name").s))
         throw DbRelationError("unacceptable table name '" + row->at("table_name").s + "'");
@@ -264,7 +251,6 @@ Handle Columns::insert(const ValueDict *row) {
     if (!unique)
         throw DbRelationError("duplicate column " + row->at("table_name").s + "." + row->at("column_name").s);
 
-    cout << "returning from Columns::insert" <<endl;
     return HeapTable::insert(row);
 }
 
@@ -315,8 +301,6 @@ Indices::Indices() : HeapTable(TABLE_NAME, COLUMN_NAMES(), COLUMN_ATTRIBUTES()) 
 
 // Manually check constraints -- unique on (table, index, column)
 Handle Indices::insert(const ValueDict *row) {
-    cout << "in indices->insert"<<endl;
-
     // Check that datatype is acceptable
     if (!is_acceptable_identifier(row->at("index_name").s))
         throw DbRelationError("unacceptable index name '" + row->at("index_name").s + "'");
@@ -329,10 +313,7 @@ Handle Indices::insert(const ValueDict *row) {
     where["index_name"] = row->at("index_name");
     if (row->at("seq_in_index").n > 1)
         where["column_name"] = row->at("column_name");  // check for duplicate columns on the same index
-    
-    cout << endl << "about to call select where" <<endl;
     Handles *handles = select(&where);
-    cout << endl << "returned from select where" <<endl;
     bool unique = handles->empty();
     delete handles;
     if (!unique)
@@ -347,6 +328,7 @@ void Indices::del(Handle handle) {
     ValueDict *row = project(handle);
     Identifier table_name = row->at("table_name").s;
     Identifier index_name = row->at("index_name").s;
+    delete row;
     std::pair<Identifier, Identifier> cache_key(table_name, index_name);
     if (Indices::index_cache.find(cache_key) != Indices::index_cache.end()) {
         DbIndex *index = Indices::index_cache.at(cache_key);
@@ -357,8 +339,7 @@ void Indices::del(Handle handle) {
 }
 
 // Return a list of column names and column attributes for given table.
-void Indices::get_columns(Identifier table_name, Identifier index_name, ColumnNames &column_names, bool &is_hash,
-                          bool &is_unique) {
+void Indices::get_columns(Identifier table_name, Identifier index_name, ColumnNames &column_names, bool &is_hash, bool &is_unique) {
     // SELECT * FROM _indices WHERE table_name = <table_name> AND index_name = <index_name>
     ValueDict where;
     where["table_name"] = table_name;
@@ -441,274 +422,4 @@ IndexNames Indices::get_index_names(Identifier table_name) {
     delete handles;
     return ret;
 }
-
-
-
-// // I pulled this from the solution repository
-// /**
-//  * @file schema_tables.cpp - implementation of schema table classes
-//  * @author Kevin Lundeen
-//  * @see "Seattle University, CPSC5300, Winter 2023"
-//  */
-// #include "schema_tables.h"
-// // #include "Shell.cpp" 
-// #include "ParseTreeToString.h"
-// #include "storage_engine.h"
-
-// void initialize_schema_tables() {
-//     cout <<"in init"<<endl;
-//     Tables tables;
-//     tables.create_if_not_exists();
-//     cout <<"created"<<endl;
-//     tables.close();
-//     cout<<"closed"<<endl;
-//     Columns columns;
-//     columns.create_if_not_exists();
-//     cout <<"created"<<endl;
-//     columns.close();
-//     cout<<"done init"<<endl;
-// }
-
-// // Not terribly useful since the parser weeds most of these out
-// bool is_acceptable_identifier(Identifier identifier) {
-//     cout << "In is_acceptable_identifier" << endl;
-//     if (ParseTreeToString::is_reserved_word(identifier))
-//         return true;
-//     try {
-//         std::stoi(identifier);
-//         return false;
-//     } catch (std::exception &e) {
-//         // can't be converted to an integer, so good
-//     }
-//     for (auto const &c: identifier)
-//         if (!isalnum(c) && c != '$' && c != '_')
-//             return false;
-//     return true;
-// }
-
-// bool is_acceptable_data_type(std::string dt) {
-//     return dt == "INT" || dt == "TEXT";  // for now
-// }
-
-
-// /*
-//  * ***************************
-//  * Tables class implementation
-//  * ***************************
-//  */
-// const Identifier Tables::TABLE_NAME = "_tables";
-// Columns *Tables::columns_table = nullptr;
-// std::map<Identifier, DbRelation *> Tables::table_cache;
-
-// // get the column name for _tables column
-// ColumnNames &Tables::COLUMN_NAMES() {
-//     static ColumnNames cn;
-//     if (cn.empty())
-//         cn.push_back("table_name");
-//     return cn;
-// }
-
-// // get the column attribute for _tables column
-// ColumnAttributes &Tables::COLUMN_ATTRIBUTES() {
-//     static ColumnAttributes cas;
-//     if (cas.empty()) {
-//         ColumnAttribute ca(ColumnAttribute::TEXT);
-//         cas.push_back(ca);
-//     }
-//     return cas;
-// }
-
-// // ctor - we have a fixed table structure of just one column: table_name
-// Tables::Tables() : HeapTable(TABLE_NAME, COLUMN_NAMES(), COLUMN_ATTRIBUTES()) {
-//     Tables::table_cache[TABLE_NAME] = this;
-//     if (Tables::columns_table == nullptr)
-//         columns_table = new Columns();
-//     Tables::table_cache[columns_table->TABLE_NAME] = columns_table;
-// }
-
-// // Create the file and also, manually add schema tables.
-// void Tables::create() {
-//     HeapTable::create();
-//     ValueDict row;
-//     row["table_name"] = Value("_tables");
-//     insert(&row);
-//     row["table_name"] = Value("_columns");
-//     insert(&row);
-// }
-
-// // Manually check that table_name is unique.
-// // Handle Tables::insert(const ValueDict *row) {
-// //     // Try SELECT * FROM _tables WHERE table_name = row["table_name"] and it should return nothing
-// //     cout << "In tables::insert"<<endl;
-// //     Handles *handles = select(row);
-// //     cout <<"selected"<<endl;
-
-// //     // David's line changes to check if handles is null
-// //     if(handles != nullptr){
-// //         cout << "in if"<<endl;
-// //         bool unique = handles->empty();
-// //         cout << "going to delete handles"<<endl;
-// //         delete handles;
-// //         cout <<"deleted handles"<<endl;
-// //     }
-// //     if (!unique)
-// //         throw DbRelationError(row->at("table_name").s + " already exists");
-// //     cout <<"exiting tables::insert"<<endl;
-// //     return HeapTable::insert(row);
-// // }
-
-// Handle Tables::insert(const ValueDict *row) {
-//     // Try SELECT * FROM _tables WHERE table_name = row["table_name"] and it should return nothing
-//     Handles *handles = select(row);
-//     cout << "hello sql"<<endl;
-//     cout << "Is handles null? " << (handles == nullptr) << endl;
-//     // cout << (*handles)[0].first << endl;
-    
-//     // for(Handle handle : *handles){
-//     //     cout << "Handle: " << handle.first << " " << handle.second << endl;
-//     // }
-
-//     // bool unique = handles->empty();
-//     // cout << "unique"<<endl;
-//     // delete handles;
-//     // if (!unique)
-//     //     throw DbRelationError(row->at("table_name").s + " already exists");
-//     return HeapTable::insert(row);
-// }
-
-// // Remove a row, but first remove from table cache if there
-// // NOTE: once the row is deleted, any reference to the table (from get_table() below) is gone! So drop the table first.
-// void Tables::del(Handle handle) {
-//     // remove from cache, if there
-//     ValueDict *row = project(handle);
-//     Identifier table_name = row->at("table_name").s;
-//     if (Tables::table_cache.find(table_name) != Tables::table_cache.end()) {
-//         DbRelation *table = Tables::table_cache.at(table_name);
-//         Tables::table_cache.erase(table_name);
-//         delete table;
-//     }
-
-//     HeapTable::del(handle);
-// }
-
-// // Return a list of column names and column attributes for given table.
-// void Tables::get_columns(Identifier table_name, ColumnNames &column_names, ColumnAttributes &column_attributes) {
-//     // SELECT * FROM _columns WHERE table_name = <table_name>
-//     ValueDict where;
-//     where["table_name"] = table_name;
-//     Handles *handles = Tables::columns_table->select(&where);
-
-//     ColumnAttribute column_attribute = ColumnAttribute(ColumnAttribute::INT); // changed by David. Included the int data type since the constructor required a data type, but from my understanding, this data type declared here won't be used
-//     for (auto const &handle: *handles) {
-//         ValueDict *row = Tables::columns_table->project(
-//                 handle);  // get the row's values: {'column_name': <name>, 'data_type': <type>}
-
-//         Identifier column_name = (*row)["column_name"].s;
-//         column_names.push_back(column_name);
-
-//         column_attribute.set_data_type((*row)["data_type"].s == "INT" ? ColumnAttribute::INT : ColumnAttribute::TEXT);
-//         column_attributes.push_back(column_attribute);
-
-//         delete row;
-//     }
-//     delete handles;
-// }
-
-// // Return a table for given table_name.
-// DbRelation &Tables::get_table(Identifier table_name) {
-//     // if they are asking about a table we've once constructed, then just return that one
-//     if (Tables::table_cache.find(table_name) != Tables::table_cache.end())
-//         return *Tables::table_cache[table_name];
-
-//     // otherwise assume it is a HeapTable (for now)
-//     ColumnNames column_names;
-//     ColumnAttributes column_attributes;
-//     get_columns(table_name, column_names, column_attributes);
-//     DbRelation *table = new HeapTable(table_name, column_names, column_attributes);
-//     Tables::table_cache[table_name] = table;
-//     return *table;
-// }
-
-
-// /*
-//  * ****************************
-//  * Columns class implementation
-//  * ****************************
-//  */
-// const Identifier Columns::TABLE_NAME = "_columns";
-
-// // get the column name for _tables column
-// ColumnNames &Columns::COLUMN_NAMES() {
-//     static ColumnNames cn;
-//     if (cn.empty()) {
-//         cn.push_back("table_name");
-//         cn.push_back("column_name");
-//         cn.push_back("data_type");
-//     }
-//     return cn;
-// }
-
-// // get the column attribute for _tables column
-// ColumnAttributes &Columns::COLUMN_ATTRIBUTES() {
-//     static ColumnAttributes cas;
-//     if (cas.empty()) {
-//         ColumnAttribute ca(ColumnAttribute::TEXT);
-//         cas.push_back(ca);
-//         cas.push_back(ca);
-//         cas.push_back(ca);
-//     }
-//     return cas;
-// }
-
-// // ctor - we have a fixed table structure of just one column: table_name
-// Columns::Columns() : HeapTable(TABLE_NAME, COLUMN_NAMES(), COLUMN_ATTRIBUTES()) {
-// }
-
-// // Create the file and also, manually add schema columns.
-// void Columns::create() {
-//     HeapTable::create();
-//     ValueDict row;
-//     row["data_type"] = Value("TEXT");  // all these are TEXT fields
-//     row["table_name"] = Value("_tables");
-//     row["column_name"] = Value("table_name");
-//     insert(&row);
-//     row["table_name"] = Value("_columns");
-//     row["column_name"] = Value("table_name");
-//     insert(&row);
-//     row["column_name"] = Value("column_name");
-//     insert(&row);
-//     row["column_name"] = Value("data_type");
-//     insert(&row);
-// }
-
-// // Manually check that (table_name, column_name) is unique.
-// Handle Columns::insert(const ValueDict *row) {
-
-//     // Check that datatype is acceptable
-//     if (!is_acceptable_identifier(row->at("table_name").s)){
-//         cout << "in first case"<<endl;
-//         throw DbRelationError("unacceptable table name '" + row->at("table_name").s + "'");
-//     }if (!is_acceptable_identifier(row->at("column_name").s)){
-//         cout << "in second case"<<endl;
-//         throw DbRelationError("unacceptable column name '" + row->at("column_name").s + "'");
-//     }if (!is_acceptable_data_type(row->at("data_type").s)){
-//         cout << "In 3rd case"<<endl;
-//         throw DbRelationError("unacceptable data type '" + row->at("data_type").s + "'");
-//     }
-
-//     // Try SELECT * FROM _columns WHERE table_name = row["table_name"] AND column_name = column_name["column_name"]
-//     // and it should return nothing
-//     ValueDict where;
-//     where["table_name"] = row->at("table_name");
-//     where["column_name"] = row->at("column_name");
-//     Handles *handles = select(&where);
-//     bool unique = handles->empty();
-//     delete handles;
-//     if (!unique)
-//         throw DbRelationError("duplicate column " + row->at("table_name").s + "." + row->at("column_name").s);
-
-//     cout << "Done with Columns::insert" << endl;
-
-//     return HeapTable::insert(row);
-// }
 

@@ -8,7 +8,7 @@
 #include <exception>
 #include <string>
 #include "SQLParser.h"
-#include "schema_tables.h"
+#include "SchemaTables.h"
 
 /**
  * @class SQLExecError - exception for SQLExec methods
@@ -68,10 +68,6 @@ protected:
     // the one place in the system that holds the _tables and _indices tables
     static Tables *tables;
     static Indices *indices;
-    static Columns *columns;
-
-    //initializes all 3 tables
-    void initialize_schema_tables();
 
     // recursive decent into the AST
     static QueryResult *create(const hsql::CreateStatement *statement);
@@ -87,11 +83,6 @@ protected:
     static QueryResult *drop_index(const hsql::DropStatement *statement);
 
     static QueryResult *show_index(const hsql::ShowStatement *statement);
-
-    // returns a QueryResult for a table, including all of the table's rows, column names, column attributes,
-    // and a message indicating success
-    // tableName: the name of the table for which to get the information
-    QueryResult* getSuccessfulQueryResult(Identifier tableName);
 
     /**
      * Pull out column name and attributes from AST's column definition clause

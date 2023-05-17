@@ -31,8 +31,7 @@
 *.out
 *.app
 
-#db files
-*.001
-*.002
-*.003
+
+# db files
 *.db
+data
