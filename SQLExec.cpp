@@ -86,7 +86,7 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
             case kStmtInsert:
                 return insert((const InsertStatement *) statement);
             case kStmtDelete:
-                return delete((const DeleteStatement *) statement);
+                return del((const DeleteStatement *) statement);
             case kStmtSelect:
                 return select((const SelectStatement *) statement);
             default:
