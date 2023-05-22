@@ -257,6 +257,7 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
         case DropStatement::kTable:
             //new scope block to prevent any scoping issues/warnings with "default"
             {
+                cout << "dropping tables" << endl;
                 //check table is not a schema table
                 Identifier tableName = statement->name;
                 if(tableName == Tables::TABLE_NAME || tableName == Columns::TABLE_NAME)
@@ -266,6 +267,8 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
                 DbRelation &table = SQLExec::tables->get_table(tableName);
                 ValueDict where;
                 where["table_name"] = Value(tableName);
+
+                cout << "removing indices" << endl;
 
                 //remove indices
                 for(const auto &name : SQLExec::indices->get_index_names(tableName)) {
@@ -277,14 +280,21 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
                     SQLExec::indices->del(handle);
                 delete indexHandles;
 
+                cout << "removing columns" << endl;
 
                 //remove columns
                 DbRelation &columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+                cout << "got table" << endl;
                 Handles *columnHandles = columns.select(&where);
-                for(const auto &handle : *columnHandles) 
+                cout << "got columns" << endl;
+                cout << "size? " << columnHandles->size() << endl;
+                for(Handle &handle : *columnHandles) {
                     columns.del(handle);
+                    cout << "column deleted" << endl;
+                }
                 delete columnHandles;
 
+                cout << "removing from schema" << endl;
 
                 //drop table and remove from schema
                 table.drop();
