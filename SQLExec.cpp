@@ -85,8 +85,6 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
                 return show((const ShowStatement *) statement);
             case kStmtInsert:
                 return insert((const InsertStatement *) statement);
-            case kStmtDelete:
-                return del((const DeleteStatement *) statement);
             case kStmtSelect:
                 return select((const SelectStatement *) statement);
             default:
@@ -412,6 +410,12 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
     return new QueryResult(column_names, column_attributes, rows, "showing columns");
 }
 
+/**
+ * @brief Shows indices of a table
+ * 
+ * @param statement the statement to be executed
+ * @return QueryResult* the result of the show
+ */
 QueryResult *SQLExec::show_index(const ShowStatement *statement) {
     ColumnNames *colNames = new ColumnNames;
     ColumnAttributes *colAttr = new ColumnAttributes;
@@ -447,14 +451,22 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
     return new QueryResult(colNames, colAttr, rows, "showing indices");
 }
 
+/**
+ * @brief Executes an insert statement
+ * 
+ * @param statement the statement to be executed
+ * @return QueryResult* the result of the insert
+ */
 QueryResult *SQLExec::insert(const InsertStatement *statement) {
     return new QueryResult("INSERT statement not yet implemented");  // FIXME
 }
 
-QueryResult *SQLExec::del(const DeleteStatement *statement) {
-    return new QueryResult("DELETE statement not yet implemented");  // FIXME
-}
-
+/**
+ * @brief Executes a select statement (no where)
+ * 
+ * @param statement the statement to be executed
+ * @return QueryResult* the result of the selects
+ */
 QueryResult *SQLExec::select(const SelectStatement *statement) {
     return new QueryResult("SELECT statement not yet implemented");  // FIXME
 }
