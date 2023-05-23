@@ -14,6 +14,8 @@
 using namespace std;
 using namespace hsql;
 
+void transactionMessage(stack<string> &transactions, string cmd);
+
 //db environment variables
 u_int32_t env_flags = DB_CREATE | DB_INIT_MPOOL; //If the environment does not exist, create it.  Initialize memory.
 u_int32_t db_flags = DB_CREATE; //If the database does not exist, create it.
@@ -51,6 +53,8 @@ int main(int argc, char **argv) {
         }
         if (sqlcmd.find("transaction") != string::npos) {
             cout << "transaction" << endl;
+            // the parser doesn't consider these as real statements so i'm doing it myself
+            transactionMessage(transactions, sqlcmd);
         }
         else {
             SQLParserResult* result = SQLParser::parseSQLString(sqlcmd);
@@ -78,3 +82,18 @@ int main(int argc, char **argv) {
     environment.close(0);
     return 0;
 } 
+
+void transactionMessage(stack<string> &transactions, string cmd) {
+    if (cmd.find("begin") != string::npos) {
+        cout << "begin" << endl;
+    }
+    else if (cmd.find("commit") != string::npos) {
+        cout << "commit" << endl;
+    }
+    else if (cmd.find("rollback") != string::npos) {
+        cout << "rollback" << endl;
+    }
+    else {
+        cout << "invalid transaction action" << endl;
+    }
+}
