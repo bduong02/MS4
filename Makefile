@@ -7,7 +7,7 @@
 INCLUDE_DIR = /usr/local/db6/include
 LIB_DIR     = /usr/local/db6/lib
 
-OBJS       =  storage_engine.o SlottedPage.o HeapFile.o HeapTable.o heap_storage.o ParseTreeToString.o SchemaTables.o SQLExec.o  cpsc4300.o EvalPlan.o
+OBJS       =  storage_engine.o SlottedPage.o HeapFile.o HeapTable.o heap_storage.o ParseTreeToString.o SchemaTables.o SQLExec.o  cpsc4300.o
 
 cpsc4300: $(OBJS)
 	g++ -L$(LIB_DIR) $(OBJS) -ldb_cxx -lsqlparser -o $@
