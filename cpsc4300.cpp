@@ -52,7 +52,6 @@ int main(int argc, char **argv) {
             break;
         }
         if (sqlcmd.find("transaction") != string::npos) {
-            cout << "transaction" << endl;
             // the parser doesn't consider these as real statements so i'm doing it myself
             transactionMessage(transactions, sqlcmd);
         }
@@ -85,13 +84,36 @@ int main(int argc, char **argv) {
 
 void transactionMessage(stack<string> &transactions, string cmd) {
     if (cmd.find("begin") != string::npos) {
-        cout << "begin" << endl;
+        transactions.push(cmd);
+        cout << "Opened transaction level " << transactions.size() << endl;
     }
     else if (cmd.find("commit") != string::npos) {
-        cout << "commit" << endl;
+        if (transactions.size() == 0) {
+            cout << "No open transactions, cannot commit" << endl;
+            return;
+        }
+        transactions.pop();
+        if (transactions.size() > 0)
+            cout << "Committed transaction level " << transactions.size() + 1
+                 << ", transaction level " << transactions.size() << " pending"
+                 << endl;
+        else
+            cout << "Committed transaction level " << transactions.size() + 1
+                 << ", no transactions pending" << endl;
     }
     else if (cmd.find("rollback") != string::npos) {
-        cout << "rollback" << endl;
+        if (transactions.size() == 0) {
+            cout << "No open transactions, cannot rollback" << endl;
+            return;
+        }
+        transactions.pop();
+        if (transactions.size() > 0) 
+            cout << "Transaction level " << transactions.size() + 1 
+                 << " rolled back, transaction level " << transactions.size()
+                 << " pending" << endl;
+        else
+            cout << "Transaction level " << transactions.size() + 1
+                 << " rolled back, no transactions pending" << endl;
     }
     else {
         cout << "invalid transaction action" << endl;
