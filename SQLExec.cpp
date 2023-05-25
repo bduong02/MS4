@@ -458,7 +458,42 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
  * @return QueryResult* the result of the insert
  */
 QueryResult *SQLExec::insert(const InsertStatement *statement) {
-    return new QueryResult("INSERT statement not yet implemented");  // FIXME
+    // can't tell if this works bc no select but it compiles :D
+
+    // get table info
+    Identifier name = statement->tableName;
+    DbRelation &table = SQLExec::tables->get_table(name);
+    ColumnNames col_names = table.get_column_names();
+
+    int count = 0;
+    ValueDict row;
+    // check value types, only add to new row if good
+    for (auto const val : *statement->values) {
+        Identifier col_name = col_names[count];
+        switch (val->type) {
+            case kExprLiteralInt:
+                row[col_name] = Value(val->ival);
+                break;
+            case kExprLiteralString:
+                row[col_name] = Value(val->name);
+                break;
+            default:
+                throw SQLExecError("Can only insert INT and TEXT");
+        }
+        count++;
+    }
+
+    // insert
+    Handle handle = table.insert(&row);
+
+    // update indices
+    IndexNames index = SQLExec::indices->get_index_names(name);
+    for (Identifier i : index) {
+        DbIndex &db_index = SQLExec::indices->get_index(name, i);
+        db_index.insert(handle);
+    }
+
+    return new QueryResult("successfully inserted row");  // FIXME
 }
 
 /**
