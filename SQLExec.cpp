@@ -531,9 +531,9 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
 
     // optimize + evaluate
     EvalPlan *optimized = plan->optimize();
-    ValueDicts *rows =  optimized->evaluate();
+    ValueDicts rows =  optimized->evaluate();
 
     ColumnAttributes col_attrs = table.get_column_attributes(*col_names);
 
-    return new QueryResult(col_names, &col_attrs, rows, "selected rows");
+    return new QueryResult(col_names, &col_attrs, &rows, "selected rows");
 }
