@@ -6,6 +6,7 @@
 #include "SQLExec.h"
 #include "ParseTreeToString.h"
 #include "SchemaTables.h"
+#include "EvalPlan.h"
 #include <iostream>
 
 using namespace std;
@@ -503,5 +504,36 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
  * @return QueryResult* the result of the selects
  */
 QueryResult *SQLExec::select(const SelectStatement *statement) {
-    return new QueryResult("SELECT statement not yet implemented");  // FIXME
+    Identifier name = statement->fromTable->getName();
+    DbRelation &table = SQLExec::tables->get_table(name);
+
+    ColumnNames *col_names = new ColumnNames();
+    
+    for (auto const &col : *statement->selectList) {
+        switch(col->type) {
+            case kExprStar:
+                for (auto const &col_name : table.get_column_names())
+                    col_names->push_back(col_name);
+                break;
+            case kExprColumnRef:
+                col_names->push_back(col->name);
+                break;
+            default:
+                throw SQLExecError("Invalid select columns");
+        }
+    }
+
+    // start with table scan
+    EvalPlan *plan = new EvalPlan(table);
+
+    // wrap in project
+    plan = new EvalPlan(col_names, plan);
+
+    // optimize + evaluate
+    EvalPlan *optimized = plan->optimize();
+    ValueDicts *rows =  optimized->evaluate();
+
+    ColumnAttributes col_attrs = table.get_column_attributes(*col_names);
+
+    return new QueryResult(col_names, &col_attrs, rows, "selected rows");
 }

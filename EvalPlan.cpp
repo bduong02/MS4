@@ -86,8 +86,8 @@ EvalPlan *EvalPlan::optimize() {
     return new EvalPlan(this);  // For now, we don't know how to do anything better
 }
 
-ValueDicts EvalPlan::evaluate() {
-    ValueDicts ret;
+ValueDicts *EvalPlan::evaluate() {
+    ValueDicts *ret;
     if (this->type != ProjectAll && this->type != Project)
         throw DbRelationError("Invalid evaluation plan--not ending with a projection");
 
