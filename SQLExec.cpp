@@ -507,13 +507,16 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     Identifier name = statement->fromTable->getName();
     DbRelation &table = SQLExec::tables->get_table(name);
 
-    ColumnNames *col_names = new ColumnNames();
+    ColumnNames *col_names = new ColumnNames;
+    ColumnAttributes *col_attrs = new ColumnAttributes;
+    col_attrs->push_back(ColumnAttribute(ColumnAttribute::TEXT));
     
     for (auto const &col : *statement->selectList) {
         switch(col->type) {
             case kExprStar:
-                for (auto const &col_name : table.get_column_names())
+                for (auto const &col_name : table.get_column_names()) {
                     col_names->push_back(col_name);
+                }   
                 break;
             case kExprColumnRef:
                 col_names->push_back(col->name);
@@ -523,17 +526,16 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
         }
     }
 
-    // start with table scan
-    EvalPlan *plan = new EvalPlan(table);
+    //ColumnAttributes col_attrs = table.get_column_attributes(*col_names);
 
-    // wrap in project
-    plan = new EvalPlan(col_names, plan);
+    Handles *handles = SQLExec::tables->select();
+    ValueDicts *rows = new ValueDicts;
+    for (auto &handle : *handles) {
+        ValueDict *row = SQLExec::tables->project(handle, col_names);
+        rows->push_back(row);
+    }
 
-    // optimize + evaluate
-    EvalPlan *optimized = plan->optimize();
-    ValueDicts rows =  optimized->evaluate();
+    delete handles;
 
-    ColumnAttributes col_attrs = table.get_column_attributes(*col_names);
-
-    return new QueryResult(col_names, &col_attrs, &rows, "selected rows");
+    return new QueryResult(col_names, col_attrs, rows, "selected rows");
 }
