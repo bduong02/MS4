@@ -1,6 +1,6 @@
-# 4300-Echidna
+# 4300-Butterfly
 ## Description
-DB Relation Manager project for CPSC4300 at Seattle U, Spring 2023, Project Echidna
+DB Relation Manager project for CPSC4300 at Seattle U, Spring 2023, Project Butterfly
 
 ## New Features
 ### Milestone 3
@@ -12,10 +12,13 @@ Builds off of Milestone 3 to `CREATE`, `DROP`, and `SHOW` indices as well as tab
 ## Installation
 1. Clone the repository on CS1
 
-` git clone https://github.com/BguardiaOpen/4300-Echidna23SQ.git `
+` git clone https://github.com/BguardiaOpen/4300-Butterfly23SQ.git `
 
 2. Ensure the ` .bash_profile ` path is configured correctly
-
+```
+$ cd # cd without an argument says to go to home directory, ~
+$ vim .bash_profile 
+```
 ```
 export PATH=/usr/local/db6/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/db6/lib:$LD_LIBRARY_PATH
