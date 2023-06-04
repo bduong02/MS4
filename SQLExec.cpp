@@ -272,7 +272,24 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
                 Identifier tableName = statement->name;
                 if(tableName == Tables::TABLE_NAME || tableName == Columns::TABLE_NAME)
                     throw SQLExecError("Error: schema tables cannot be dropped");
-
+                
+                // path to table in db
+                string filePath = SQLExec::DbPath + "/" + tableName + ".db";
+                // lock the table file
+                int lockFile = open(filePath.c_str(), O_RDWR, 0666);
+                // throw an error if failed to open file
+                if (lockFile == -1) {
+                    throw EBADF;
+                }
+                // initialize an exclusive lock
+                lock.l_type = F_WRLCK;
+                lock.l_whence = SEEK_SET;
+                lock.l_start = 0;
+                lock.l_len = 0;
+                // throw an error if failed to lock file
+                if (fcntl(lockFile, F_SETLK, &lock) == -1) {
+                    throw EACCES;
+                }
 
                 DbRelation &table = SQLExec::tables->get_table(tableName);
                 ValueDict where;
