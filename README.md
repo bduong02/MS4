@@ -2,12 +2,23 @@
 ## Description
 DB Relation Manager project for CPSC4300 at Seattle U, Spring 2023, Project Butterfly
 
-## New Features
+### Milestone 1
+Take SQL statements, parse them, and print out the parse tree.
+
+### Milestone 2
+Implements Heap Storage Engine's version of each: SlottedPage, HeapFile, and HeapTable.
+
 ### Milestone 3
 Executes `CREATE`, `DROP`, and `SHOW` SQL statements in a Berkeley DB Database. `SHOW` statements can handle displaying tables and columns.
 
 ### Milestone 4
 Builds off of Milestone 3 to `CREATE`, `DROP`, and `SHOW` indices as well as tables.
+
+### Milestone 5
+Implement basic `INSERT` and `SELECT` statements, and the skeleton for BEGIN / COMMIT / ROLLBACK.
+
+### Milestone 6
+Creates locks to handle transactions running in parallel.
 
 ## Installation
 1. Clone the repository on CS1
@@ -35,11 +46,12 @@ export PYTHONPATH=/usr/local/db6/lib/site-packages:$PYTHONPATH
     
     * ` make clean `: removes the object code files
 5. User input options
-
-    * SQL `CREATE`, `DROP`, and `SHOW` statements (see example)
+    * SQL `CREATE`, `DROP`, and `SHOW` statements (see example Milestone 3 and 4)
+    * SQL `INSERT` and `SELECT` statements (see example Milestone 5 and 6
+    #Milestone 3 and 4
     * ` quit ` exits the program
 
-## Example
+## Example Milestone 3 and 4
 
 ```
 $ ./cpsc4300 cpsc4300/data
@@ -73,6 +85,70 @@ table_name index_name column_name seq_in_index index_type is_unique
 SQL> not real sql
 Invalid SQL: not real sql
 SQL> quit
+```
+## Example Milestone 5 and 6
+### Instance 1
+```
+SQL> create table foo (id int, data text)
+CREATE TABLE foo (id INT, data TEXT)
+created foo
+SQL> insert into foo values (1,"one");insert into foo values(2,"two"); insert into foo values (2, "another two")
+INSERT INTO foo VALUES (1, "one")
+successfully inserted 1 row into foo
+INSERT INTO foo VALUES (2, "two")
+successfully inserted 1 row into foo
+INSERT INTO foo VALUES (2, "another two")
+successfully inserted 1 row into foo
+SQL> select * from foo
+SELECT * FROM foo
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+successfully returned 3 rows
+SQL> begin transaction
+BEGIN TRANSACTION - level 1
+SQL> insert into foo values (4,"four");
+INSERT INTO foo VALUES (4, "four")
+successfully inserted 1 row into foo
+SQL> select * from foo
+SELECT * FROM foo
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+4 "four" 
+successfully returned 4 rows
+SQL> commit transaction
+successfully committed transaction level 1
+SQL> quit
+```
+### Instance 2, right after Instance 1 ran begin transaction:
+```
+SQL> select * from foo
+SELECT * FROM foo
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+successfully returned 3 rows
+```
+### Instance 2, right after Instance 1 ran INSERT INTO foo VALUES (4, "four"):
+```
+SQL> select * from foo
+SELECT * FROM foo
+Waiting for lock - table foo
+
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+4 "four" 
+successfully returned 4 rows
 ```
 
 ## Acknowledgements
