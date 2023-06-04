@@ -62,12 +62,14 @@ public:
      * @param statement   the Hyrise AST of the SQL statement to execute
      * @returns           the query result (freed by caller)
      */
-    static QueryResult *execute(const hsql::SQLStatement *statement);
+    static QueryResult *execute(const hsql::SQLStatement *statement, string dbPath);
 
 protected:
     // the one place in the system that holds the _tables and _indices tables
     static Tables *tables;
     static Indices *indices;
+
+    static string DbPath;
 
     // recursive decent into the AST
     static QueryResult *create(const hsql::CreateStatement *statement);

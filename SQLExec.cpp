@@ -6,8 +6,8 @@
 #include "SQLExec.h"
 #include "ParseTreeToString.h"
 #include "SchemaTables.h"
-#include "EvalPlan.h"
 #include <iostream>
+#include <sys/file.h>
 
 using namespace std;
 using namespace hsql;
@@ -15,6 +15,9 @@ using namespace hsql;
 // define static data
 Tables *SQLExec::tables = nullptr;
 Indices *SQLExec::indices = nullptr;
+string SQLExec::DbPath = "";
+
+struct flock lock;
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres) {
@@ -69,12 +72,14 @@ QueryResult::~QueryResult() {
  * @param statement the statement to be executed
  * @return QueryResult* the result of the statement
  */
-QueryResult *SQLExec::execute(const SQLStatement *statement) {
+QueryResult *SQLExec::execute(const SQLStatement *statement, string dbPath) {
     // Initializes _tables table if not null
     if (SQLExec::tables == nullptr) {
         SQLExec::tables = new Tables();
         SQLExec::indices = new Indices();
     }
+
+    SQLExec::DbPath = dbPath;
 
     try {
         switch (statement->type()) {
@@ -459,10 +464,25 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
  * @return QueryResult* the result of the insert
  */
 QueryResult *SQLExec::insert(const InsertStatement *statement) {
-    // can't tell if this works bc no select but it compiles :D
-
     // get table info
     Identifier name = statement->tableName;
+
+    string filePath = SQLExec::DbPath + "/" + name + ".db";
+
+    int lockFile = open(filePath.c_str(), O_RDWR, 0666);
+    if (lockFile == -1) {
+        throw EBADF;
+    }
+    // initialize lock
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+
+    if (fcntl(lockFile, F_SETLK, &lock) == -1) {
+        throw EACCES;
+    }
+
     DbRelation &table = SQLExec::tables->get_table(name);
     ColumnNames col_names = table.get_column_names();
 
@@ -493,6 +513,8 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
         DbIndex &db_index = SQLExec::indices->get_index(name, i);
         db_index.insert(handle);
     }
+
+    close(lockFile);
 
     return new QueryResult("successfully inserted row");  // FIXME
 }

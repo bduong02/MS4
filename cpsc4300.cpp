@@ -33,7 +33,25 @@ int main(int argc, char **argv) {
     try {
         environment.set_message_stream(&cout);
 	    environment.set_error_stream(&cerr);
-	    environment.open(dbPath.c_str(), env_flags, 0);
+            
+        environment.open(dbPath.c_str(), env_flags, 0);
+        // string db01 = dbPath + "/__db.001";
+        // int lockFile = open(db01.c_str(), O_RDWR, 0666);
+        // if (lockFile == -1) {
+        //     cout << "Could not open lock file" << endl;
+        //     return -1;
+        // }
+        // // initialize lock
+        // lock.l_type = F_WRLCK;
+        // lock.l_whence = SEEK_SET;
+        // lock.l_start = 0;
+        // lock.l_len = 0;
+
+        // if (fcntl(lockFile, F_SETLK, &lock) == -1) {
+        //     cout << "Database is locked" << endl;
+        //     return -1;
+        // }
+        // close(lockFile);
     } catch(DbException &E) {
         cout << "Error creating DB environment" << endl;
         exit(EXIT_FAILURE);
@@ -64,7 +82,7 @@ int main(int argc, char **argv) {
                     const SQLStatement* statement = result->getStatement(i);
                     try {
                         cout << ParseTreeToString::statement(statement) << endl;
-                        QueryResult *q_result = SQLExec::execute(statement);
+                        QueryResult *q_result = SQLExec::execute(statement, dbPath);
                         cout << *q_result << endl;
                         delete q_result;
                     }
